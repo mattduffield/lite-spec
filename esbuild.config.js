@@ -15,7 +15,7 @@ esbuild.build({
   entryPoints: ['src/highlighters/litespec.mode.cm.js'],
   bundle: true,
   minify: true,
-  outfile: 'dist/highlighters/litespec-monde.cm.js'
+  outfile: 'dist/highlighters/litespec-mode.cm.js'
 }).catch(() => process.exit(1));
 
 // Sublime highlighter bundling and minification
