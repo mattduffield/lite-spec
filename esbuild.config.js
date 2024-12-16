@@ -2,7 +2,7 @@ const esbuild = require('esbuild');
 const fs = require('fs');
 
 esbuild.build({
-  entryPoints: ['src/parser.js'],
+  entryPoints: ['src/index.js'],
   bundle: true,
   minify: true,
   outfile: 'dist/lite-spec.min.js',  // Output bundled file
