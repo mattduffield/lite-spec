@@ -1,0 +1,43 @@
+%YAML 1.2
+---
+name: LiteSpec
+file_extensions: [ls]
+scope: source.litespec
+
+contexts:
+  main:
+    # Match 'def' and 'model' keywords
+    - match: \b(def|model)\b
+      scope: keyword.control.litespec
+
+    # Match object and array definitions
+    - match: \b(object|array|string|number|integer|boolean|decimal)\b
+      scope: punctuation.definition.litespec
+
+    # Match annotations starting with '@'
+    - match: '(@required|@can|@ref|@if|@minimum|@exclusiveMinimum|@maximum|@exclusiveMaximum|@minLength|@maxLength|@minItems|@maxItems|@uniqueItems|@uuid|@email|@format|@enum|@const|@default)'
+      scope: keyword.other.annotation.litespec
+
+    # Match field names
+    - match: \b[a-zA-Z_]\w*\b(?=:)
+      scope: support.type.litespec
+
+    # Match punctuation like ':', '{', '}', and ','
+    - match: '[:{}]'
+      scope: keyword.control.litespec
+
+    # Match strings
+    - match: '"[^"]*"'
+      scope: string.quoted.double.litespec
+
+    # Match numbers
+    - match: \b\d+(\.\d+)?\b
+      scope: constant.numeric.litespec
+
+    # Match 'true', 'false' and 'date-time' keywords
+    - match: \b(true|false|date-time)\b
+      scope: constant.numeric.litespec
+
+    # Match comments (optional, if needed)
+    - match: '//.*$'
+      scope: comment.line.double-slash.litespec

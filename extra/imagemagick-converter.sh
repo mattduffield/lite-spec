@@ -1,0 +1,19 @@
+magick wavecss-1024x1024.png -resize 512x512 wavecss_512x512.png
+magick wavecss-1024x1024.png -resize 256x256 wavecss_256x256.png
+magick wavecss-1024x1024.png -resize 192x192 wavecss_192x192.png
+magick wavecss-1024x1024.png -resize 180x180 wavecss_180x180.png
+magick wavecss-1024x1024.png -resize 167x167 wavecss_167x167.png
+magick wavecss-1024x1024.png -resize 152x152 wavecss_152x152.png
+magick wavecss-1024x1024.png -resize 144x144 wavecss_144x144.png
+magick wavecss-1024x1024.png -resize 128x128 wavecss_128x128.png
+magick wavecss-1024x1024.png -resize 120x120 wavecss_120x120.png
+magick wavecss-1024x1024.png -resize 96x96 wavecss_96x96.png
+magick wavecss-1024x1024.png -resize 87x87 wavecss_87x87.png
+magick wavecss-1024x1024.png -resize 76x76 wavecss_76x76.png
+magick wavecss-1024x1024.png -resize 72x72 wavecss_72x72.png
+magick wavecss-1024x1024.png -resize 60x60 wavecss_60x60.png
+magick wavecss-1024x1024.png -resize 58x58 wavecss_58x58.png
+magick wavecss-1024x1024.png -resize 48x48 wavecss_48x48.png
+magick wavecss-1024x1024.png -resize 32x32 wavecss_32x32.png
+magick wavecss-1024x1024.png -resize 29x29 wavecss_29x29.png
+

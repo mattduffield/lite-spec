@@ -1,0 +1,233 @@
+{
+  "$defs": {
+    "address": {
+      "type": "object",
+      "properties": {
+        "street": {
+          "type": "string"
+        },
+        "city": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "postal_code": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "street",
+        "city",
+        "state",
+        "postal_code"
+      ],
+      "permissions": {
+        "collection": {
+          "view": "@self",
+          "add": "admin editor",
+          "edit": "admin @self editor",
+          "delete": "@self admin"
+        }
+      }
+    },
+    "member": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "first_name": {
+            "type": "string"
+          },
+          "middle_initial": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1
+          },
+          "last_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "first_name"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "first_name": {
+                  "minLength": 2,
+                  "maxLength": 99
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "middle_initial",
+                "last_name"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "title": "customer",
+  "type": "object",
+  "properties": {
+    "_id": {
+      "type": "string"
+    },
+    "first_name": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 10
+    },
+    "last_name": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 10
+    },
+    "email": {
+      "type": "string"
+    },
+    "age": {
+      "type": "number",
+      "minimum": 14,
+      "maximum": 130
+    },
+    "license_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "gender": {
+      "type": "string",
+      "enum": [
+        "male",
+        "female"
+      ]
+    },
+    "address": {
+      "type": "object",
+      "$ref": "#/$defs/address"
+    },
+    "household_members": {
+      "type": "array",
+      "$ref": "#/$defs/member",
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "salary": {
+      "type": "number",
+      "minimum": 30000,
+      "maximum": 999999
+    },
+    "has_prior_coverage": {
+      "type": "boolean"
+    },
+    "prior_coverage_company": {
+      "type": "string",
+      "minLength": 2
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "created_by": {
+      "type": "string"
+    },
+    "created_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "modified_by": {
+      "type": "string"
+    },
+    "modified_date": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "first_name",
+    "last_name",
+    "gender",
+    "address",
+    "household_members",
+    "tags",
+    "salary",
+    "has_prior_coverage",
+    "is_active"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "has_prior_coverage": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "prior_coverage_company"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "age": {
+            "minimum": 16
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "license_date"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "gender": {
+            "enum": [
+              "male",
+              "female"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "tags"
+        ]
+      }
+    }
+  ],
+  "permissions": {
+    "collection": {
+      "view": "@self admin",
+      "add": "admin",
+      "edit": "admin editor",
+      "delete": "admin"
+    },
+    "field": [
+      {
+        "salary": {
+          "view": "finance",
+          "delete": "finance_manager"
+        }
+      }
+    ]
+  }
+}

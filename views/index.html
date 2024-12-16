@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Model DSL</title>
+
+  <!-- Google Fonts -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
+  <link href="https://mattduffield.github.io/wave-css/dist/styles.min.css" rel="stylesheet" type="text/css">
+  <link rel="preload" href="https://mattduffield.github.io/wave-css/dist/components.min.js" as="script">
+  <script type="module" src="https://mattduffield.github.io/wave-css/dist/components.min.js" defer></script>
+  <script src="https://unpkg.com/htmx.org@2.0.2"></script>
+</head>
+
+<body class="flex flex-col flex-1 gap-4 h-full text-sm">
+  <wc-form method="POST" class="flex flex-col flex-1 gap-4 h-full">
+    <div class="my-2 px-4">
+      <wc-theme-selector theme="theme-ocean-blue" mode="light"></wc-theme-selector>
+    </div>
+
+    <div class="mt-4 mb-2 px-4 overflow-auto">
+      <wc-code-mirror
+        name="input"
+        line-numbers
+        line-wrapper
+        fold-gutter
+        mode="litespec"
+        theme="monokai"
+        tab-size="2"
+        indent-unit="2">def Address object {
+  street: string @required
+  city: string @required
+  state: string @required
+  postal_code: string @required  
+  @can(view: "@self", add: "admin editor", edit: "admin @self editor", delete: "@self admin")
+}
+def Member array {
+  first_name: string @required
+  middle_initial: string @minLength(1) @maxLength(1)
+  last_name: string
+  @if(first_name: @minLength(2)  @maxLength(99), @required(middle_initial)   @required(last_name))
+}
+model Customer object {
+  _id: string @uuid
+  first_name: string @required @minLength(2) @maxLength(10)
+  last_name: string @required @minLength(2) @maxLength(10)
+  email: string @email
+  age: integer @minimum(14) @exclusiveMaximum(130)
+  license_date: string @format(date-time)
+  gender: string @required @enum(male,female)
+  address: object @ref(Address) @required
+  household_members: array @ref(Member) @required @minItems(1) @uniqueItems
+  tags: array(string) @required @minItems(1) @uniqueItems
+  salary: number @required @minimum(30000) @maximum(999999) @can(view: "finance", delete: "finance_manager")
+  policy_total: decimal @minimum(0.00) @maximum(999999.99) @default(0.00) @can(view: "accounting", delete: "accounting_manager")
+  has_prior_coverage: boolean @required
+  prior_coverage_company: string @minLength(2)
+  is_active: boolean @required @default(true)
+  created_by: string
+  created_date: string @format(date-time)
+  modified_by: string
+  modified_date: string @format(date-time)
+
+  @if(has_prior_coverage: @const(true), @required(prior_coverage_company))
+  @if(age: @minimum(16), @required(license_date))
+  @if(gender: @enum("male", "female"), @required(tags))
+  @if(modified_by: @minLength(1) @maxLength(99), @required(modified_date))
+
+  @can(view: "@self admin", add: "admin", edit: "admin editor", delete: "admin")  // This is a comment
+}</wc-code-mirror>
+    </div>
+    <div class="flex flex-row container mx-auto px-4 justify-center items-center">
+      <button type="button" id="generate" onclick="app.generate()">
+        Go
+      </button>
+    </div>
+    <div class="mt-4 mb-2 px-4 overflow-auto">
+      <wc-code-mirror
+        name="output"
+        line-numbers
+        line-wrapper
+        fold-gutter
+        mode="javascript"
+        theme="monokai"
+        value=""
+        tab-size="2"
+        indent-unit="2"></wc-code-mirror>
+    </div>
+    <div class="flex flex-row gap-3 mt-4 mb-2 px-4 overflow-auto">
+      <button type="submit">Submit</button>
+    </div>
+    <div id="content" class="flex flex-row gap-3 mt-4 mb-2 px-4 overflow-auto">
+      Content here...
+    </div>
+  </wc-form>
+
+  <div id="loading-indicator" class="htmx-indicator">
+    <svg class="animate-spin h-5 w-5"
+      xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+  </div>
+
+  <template id="btn-animate">
+    <svg class="animate-spin h-5 w-5"
+      xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+  </template>
+
+  <script src="https://cdn.jsdelivr.net/npm/nunjucks@3.2.4/browser/nunjucks.min.js"></script>
+  <script type="module" src="index.js"></script>
+</body>
+</html>
