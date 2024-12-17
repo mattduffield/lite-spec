@@ -263,4 +263,4 @@ window.litespec.handlePermExpression = handlePermExpression;
 window.litespec.handleIfExpression = handleIfExpression;
 window.litespec.handleAttributes = handleAttributes;
 window.litespec.parseDSL = parseDSL;
-window.litespec.parseDSL = validateDataUsingSchema;
+window.litespec.validateDataUsingSchema = validateDataUsingSchema;
