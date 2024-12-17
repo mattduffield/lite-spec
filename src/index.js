@@ -135,7 +135,10 @@ function handleAttributes(attributes, field, type, fieldSchema, context, fieldPe
       }
     } else if (attr.startsWith('@default')) {
       const defaultValue = attr.match(/\((.*?)\)/)[1];
-      if (defaultValue === 'true' || defaultValue === 'false') {
+      if (defaultValue === '""') {
+        fieldSchema.default = "";
+      }
+      else if (defaultValue === 'true' || defaultValue === 'false') {
         fieldSchema.default = defaultValue === 'true' ? true : false;
       } else if (!isNaN(defaultValue)) {
         const decimalPlacesMatch = defaultValue.match(/\.(\d+)/);
