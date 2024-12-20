@@ -221,9 +221,17 @@ function parseDSL(dsl) {
       const [field, type] = line.split(':').map(v => v.trim());
       const attributes = type.match(/@\w+(\(.*?\))?/g) || [];
       const arrayTypeMatch = line.match(/array\((\w+)\)/);
+      const arrayRefTypeMatch = line.match(/array\((@\w+)\)/);
       if (arrayTypeMatch) {
         const itemType = arrayTypeMatch[1];
         const nestedArray = { type: 'array', items: { type: itemType } };
+        let context = stack[stack.length - 1];
+        this.handleAttributes(attributes, field, type, nestedArray, context, fieldPermissions);
+        currentObject['properties'][field] = nestedArray;
+      } else if (arrayRefTypeMatch) {
+        const refName = type.match(/@ref\((.*?)\)/)[1];
+        const refValue = `#/$defs/${refName.toLowerCase()}`;
+        const nestedArray = { type: 'array', items: { $ref: refValue } };
         let context = stack[stack.length - 1];
         this.handleAttributes(attributes, field, type, nestedArray, context, fieldPermissions);
         currentObject['properties'][field] = nestedArray;
