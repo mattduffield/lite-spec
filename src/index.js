@@ -221,7 +221,7 @@ function parseDSL(dsl) {
       const [field, type] = line.split(':').map(v => v.trim());
       const attributes = type.match(/@\w+(\(.*?\))?/g) || [];
       const arrayTypeMatch = line.match(/array\((\w+)\)/);
-      const arrayRefTypeMatch = line.match(/array\((@\w+)\)/);
+      const arrayRefTypeMatch = line.match(/array\(@ref\((\w+)\)/);
       if (arrayTypeMatch) {
         const itemType = arrayTypeMatch[1];
         const nestedArray = { type: 'array', items: { type: itemType } };
