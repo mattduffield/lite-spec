@@ -249,7 +249,7 @@ function parseDSL(dsl) {
   return schema;
 }
 function validateDataUsingSchema(schema, data) {
-  const ajv = new Ajv(); // Create an instance of Ajv
+  const ajv = new Ajv({ strict: false }); // Create an instance of Ajv
   const validate = ajv.compile(schema); // Compile the JSON Schema
   const isValid = validate(data); // Validate the data object
 
