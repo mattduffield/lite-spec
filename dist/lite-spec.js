@@ -6603,7 +6603,8 @@ function parseDSL(dsl) {
         const refValue = `#/$defs/${refName.toLowerCase()}`;
         const nestedArray = { type: "array", items: { $ref: refValue } };
         let context = stack[stack.length - 1];
-        this.handleAttributes(attributes, field, type, nestedArray, context, fieldPermissions);
+        let filteredAttributes = attributes.filter((attribute) => !attribute.includes(refName));
+        this.handleAttributes(filteredAttributes, field, type, nestedArray, context, fieldPermissions);
         currentObject["properties"][field] = nestedArray;
       }
     } else {
