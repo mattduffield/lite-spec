@@ -10,6 +10,15 @@ esbuild.build({
   // watch: process.argv.includes('--watch'),  // Optional: Watch mode
 }).catch(() => process.exit(1));
 
+esbuild.build({
+  entryPoints: ['src/index.js'],
+  bundle: true,
+  minify: false,
+  outfile: 'dist/lite-spec.js',  // Output bundled file
+  format: 'esm',  // Use ESM for modern imports
+  // watch: process.argv.includes('--watch'),  // Optional: Watch mode
+}).catch(() => process.exit(1));
+
 // Code Mirror highlighter bundling and minification
 esbuild.build({
   entryPoints: ['src/highlighters/litespec.mode.cm.js'],
