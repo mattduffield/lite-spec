@@ -96,6 +96,9 @@ function handleAttributes(attributes, field, type, fieldSchema, context, fieldPe
       fieldSchema['$ref'] = `#/$defs/${refName.toLowerCase()}`;
     } else if (attr.startsWith('@required')) {
       context.requiredFields.push(field);
+    } else if (attr.startsWith('@ui')) {
+      const uiName = type.match(/@ui\((.*?)\)/)[1];
+      context.ui[field] = uiName;
     } else if (attr.startsWith('@minItems')) {
       fieldSchema.minItems = parseInt(attr.match(/\d+/)[0]);
     } else if (attr.startsWith('@maxItems')) {
@@ -184,7 +187,7 @@ function parseDSL(dsl) {
       schema.type = 'object';
       schema.properties = {};
       currentObject = schema;
-      stack.push({ object: currentObject, requiredFields: [] });
+      stack.push({ object: currentObject, requiredFields: [], ui: {} });
     } else if (line.startsWith('}')) {
       const context = stack.pop();
       currentObject = context.object;
