@@ -8,7 +8,7 @@ CodeMirror.defineSimpleMode("litespec", {
     { regex: /\b(object|array|string|number|integer|boolean|decimal)\b/, token: "atom" },
     
     // Match annotations starting with @
-    { regex: /(@required|@can|@ref|@if|@minimum|@exclusiveMinimum|@maximum|@exclusiveMaximum|@minLength|@maxLength|@minItems|@maxItems|@uniqueItems|@uuid|@email|@format|@enum|@const|@default)/, token: "attribute" },
+    { regex: /(@required|@can|@ref|@if|@minimum|@exclusiveMinimum|@maximum|@exclusiveMaximum|@minLength|@maxLength|@minItems|@maxItems|@uniqueItems|@uuid|@email|@format|@enum|@const|@default|@ui)/, token: "attribute" },
     
     // Match field names before the colon
     { regex: /\b[a-zA-Z_]\w*\b(?=:)/, token: "variable-2" },
