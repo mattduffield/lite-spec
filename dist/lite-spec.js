@@ -6531,6 +6531,7 @@ function parseDSL(dsl) {
   const lines = dsl.split("\n").map((line) => line.trim()).filter((line) => line !== "");
   let schema = { $defs: {} };
   let rules = [];
+  let ui = {};
   let permissions = {};
   let fieldPermissions = [];
   let stack = [];
@@ -6540,6 +6541,7 @@ function parseDSL(dsl) {
       const [defName, defType] = line.match(/def (\w+) (object|array)/).slice(1);
       let defSchema;
       rules = [];
+      ui = {};
       permissions = {};
       fieldPermissions = [];
       if (defType === "object") {
@@ -6549,17 +6551,18 @@ function parseDSL(dsl) {
       }
       schema.$defs[defName.toLowerCase()] = defSchema;
       currentObject = defSchema.type === "object" ? defSchema : defSchema.items;
-      stack.push({ object: currentObject, requiredFields: [], ui: {} });
+      stack.push({ object: currentObject, requiredFields: [], ui });
     } else if (line.startsWith("model ")) {
       const modelName = line.match(/model (\w+)/)[1];
       rules = [];
+      ui = {};
       permissions = {};
       fieldPermissions = [];
       schema.title = modelName.toLowerCase();
       schema.type = "object";
       schema.properties = {};
       currentObject = schema;
-      stack.push({ object: currentObject, requiredFields: [], ui: {} });
+      stack.push({ object: currentObject, requiredFields: [], ui });
     } else if (line.startsWith("}")) {
       const context = stack.pop();
       currentObject = context.object;
