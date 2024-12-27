@@ -177,7 +177,7 @@ function parseDSL(dsl) {
       }
       schema.$defs[defName.toLowerCase()] = defSchema;
       currentObject = defSchema.type === 'object' ? defSchema : defSchema.items;
-      stack.push({ object: currentObject, requiredFields: [] });
+      stack.push({ object: currentObject, requiredFields: [], ui: {} });
     } else if (line.startsWith('model ')) {
       const modelName = line.match(/model (\w+)/)[1];
       rules = [];
