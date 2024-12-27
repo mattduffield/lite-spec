@@ -156,9 +156,9 @@ function handleAttributes(attributes, field, type, fieldSchema, context, fieldPe
 }
 function parseDSL(dsl) {
   const lines = dsl.split('\n').map(line => line.trim()).filter(line => line !== '');
-  let schema = { $defs: {} };
-  let rules = [];
   let ui = {};
+  let schema = { $defs: {}, ui: ui };
+  let rules = [];
   let permissions = {};
   let fieldPermissions = [];
   let stack = [];
@@ -169,7 +169,6 @@ function parseDSL(dsl) {
       const [defName, defType] = line.match(/def (\w+) (object|array)/).slice(1);
       let defSchema;
       rules = [];
-      ui = {}
       permissions = {};
       fieldPermissions = [];
       if (defType === 'object') {
@@ -183,7 +182,6 @@ function parseDSL(dsl) {
     } else if (line.startsWith('model ')) {
       const modelName = line.match(/model (\w+)/)[1];
       rules = [];
-      ui = {};
       permissions = {};
       fieldPermissions = [];
       schema.title = modelName.toLowerCase();
