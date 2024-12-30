@@ -82,8 +82,132 @@ function handleIfExpression(expression) {
   }
 
   return schema;
-}  
+}
 function handleAttributes(attributes, field, type, fieldSchema, context, fieldPermissions, ui) {
+  attributes.forEach(attr => {
+    if (attr.startsWith('@can')) {
+      const perm = handlePermExpression(attr);
+      fieldPermissions.push({ [field]: perm });
+    } else if (attr.startsWith('@enum')) {
+      const enums = type.match(/@enum\((.*?)\)/)[1];
+      fieldSchema.enum = enums.split(',').map(m => m.trim());
+    } else if (attr.startsWith('@ref')) {
+      const refName = type.match(/@ref\((.*?)\)/)[1];
+      fieldSchema['$ref'] = `#/$defs/${refName.toLowerCase()}`;
+    } else if (attr.startsWith('@required')) {
+      context.requiredFields.push(field);
+    } else if (attr.startsWith('@ui')) {
+      const uiName = attr.match(/@ui\((.*?)\)/)[1];
+      ui[field] = uiName; // Update the UI for the field
+    } else if (attr.startsWith('@minItems')) {
+      fieldSchema.minItems = parseInt(attr.match(/\d+/)[0]);
+    } else if (attr.startsWith('@maxItems')) {
+      fieldSchema.maxItems = parseInt(attr.match(/\d+/)[0]);
+    } else if (attr.startsWith('@uniqueItems')) {
+      fieldSchema.uniqueItems = true;
+    } else if (attr.startsWith('@minLength')) {
+      fieldSchema.minLength = parseInt(attr.match(/\d+/)[0]);
+    } else if (attr.startsWith('@maxLength')) {
+      fieldSchema.maxLength = parseInt(attr.match(/\d+/)[0]);
+    } else if (attr.startsWith('@exclusiveMinimum')) {
+      fieldSchema.exclusiveMinimum = parseInt(attr.match(/\d+/)[0]);
+    } else if (attr.startsWith('@exclusiveMaximum')) {
+      fieldSchema.exclusiveMaximum = parseInt(attr.match(/\d+/)[0]);
+    } else if (attr.startsWith('@minimum')) {
+      fieldSchema.minimum = parseInt(attr.match(/\d+/)[0]);
+    } else if (attr.startsWith('@maximum')) {
+      fieldSchema.maximum = parseInt(attr.match(/\d+/)[0]);
+    } else if (attr.startsWith('@multipleOf')) {
+      fieldSchema.multipleOf = parseInt(attr.match(/\d+/)[0]);
+    } else if (attr.startsWith('@format')) {
+      const format = attr.match(/\((.*?)\)/)[1];
+      if (format === 'date-time') {
+        fieldSchema.anyOf = [
+          { type: 'string', format: 'date-time' },
+          { type: 'string', enum: [""] }
+        ];
+        delete fieldSchema.type;
+      } else {
+        fieldSchema.format = format;
+      }
+    } else if (attr.startsWith('@default')) {
+      const defaultValue = attr.match(/\((.*?)\)/)[1];
+      if (defaultValue === '""') {
+        fieldSchema.default = "";
+      } else if (defaultValue === 'true' || defaultValue === 'false') {
+        fieldSchema.default = defaultValue === 'true';
+      } else if (!isNaN(defaultValue)) {
+        fieldSchema.default = parseFloat(defaultValue);
+      } else {
+        fieldSchema.default = defaultValue;
+      }
+    }
+  });
+}
+
+function parseDSL(dsl) {
+  const lines = dsl.split('\n').map(line => line.trim()).filter(line => line !== '');
+  let schema = { $defs: {}, ui: {} };
+  let rules = [];
+  let permissions = {};
+  let fieldPermissions = [];
+  let stack = [];
+  let currentObject = schema;
+
+  lines.forEach(line => {
+    if (line.startsWith('def ')) {
+      const [defName, defType] = line.match(/def (\w+) (object|array)/).slice(1);
+      let defSchema = defType === 'object' ? { type: 'object', properties: {} } : { type: 'array', items: { type: 'object', properties: {} } };
+      schema.$defs[defName.toLowerCase()] = defSchema;
+      currentObject = defType === 'object' ? defSchema : defSchema.items;
+      stack.push({ object: currentObject, requiredFields: [], ui: schema.ui });
+    } else if (line.startsWith('model ')) {
+      const modelName = line.match(/model (\w+)/)[1];
+      schema.title = modelName.toLowerCase();
+      schema.type = 'object';
+      schema.properties = {};
+      currentObject = schema;
+      stack.push({ object: currentObject, requiredFields: [], ui: schema.ui });
+    } else if (line.startsWith('}')) {
+      const context = stack.pop();
+      currentObject = context.object;
+      if (context.requiredFields.length > 0) {
+        currentObject.required = context.requiredFields;
+      }
+      if (rules.length > 0) {
+        currentObject.allOf = rules;
+      }
+      if (Object.keys(permissions).length > 0) {
+        currentObject.permissions = { collection: permissions };
+      }
+      if (fieldPermissions.length > 0) {
+        currentObject.permissions = { ...currentObject.permissions, field: fieldPermissions };
+      }
+      if (stack.length > 0) {
+        currentObject = stack[stack.length - 1].object;
+      }
+    } else if (line.startsWith('@if')) {
+      const rule = handleIfExpression(line);
+      rules.push(rule);
+    } else if (line.startsWith('@can')) {
+      permissions = handlePermExpression(line);
+    } else {
+      const field = line.substring(0, line.indexOf(':')).trim();
+      const type = line.substring(line.indexOf(':') + 1).trim();
+      const attributes = type.match(/@\w+(\(.*?\))?/g) || [];
+      const fieldType = type.split('@')[0].trim();
+      const fieldSchema = { type: fieldType };
+      let context = stack[stack.length - 1];
+      handleAttributes(attributes, field, type, fieldSchema, context, fieldPermissions, context.ui);
+      currentObject.properties[field] = fieldSchema;
+    }
+  });
+
+  return schema;
+}
+
+
+function handleAttributes2(attributes, field, type, fieldSchema, context, fieldPermissions, ui) {
   attributes.forEach(attr => {
     if (attr.startsWith('@can')) {
       const perm = this.handlePermExpression(attr);
@@ -154,7 +278,7 @@ function handleAttributes(attributes, field, type, fieldSchema, context, fieldPe
     }
   });
 }
-function parseDSL(dsl) {
+function parseDSL2(dsl) {
   const lines = dsl.split('\n').map(line => line.trim()).filter(line => line !== '');
   let ui = {};
   let schema = { $defs: {}, ui: ui };
