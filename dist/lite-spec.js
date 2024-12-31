@@ -6457,7 +6457,7 @@ function handleIfExpression(expression) {
   }
   return schema;
 }
-function handleAttributes(attributes, field, type, fieldSchema, context, fieldPermissions, ui) {
+function handleAttributes(attributes, field, type, fieldSchema, context, fieldPermissions, ui2) {
   attributes.forEach((attr) => {
     if (attr.startsWith("@can")) {
       const perm = handlePermExpression(attr);
@@ -6472,7 +6472,7 @@ function handleAttributes(attributes, field, type, fieldSchema, context, fieldPe
       context.requiredFields.push(field);
     } else if (attr.startsWith("@ui")) {
       const uiName = attr.match(/@ui\((.*?)\)/)[1];
-      ui[field] = uiName;
+      ui2[field] = uiName;
     } else if (attr.startsWith("@minItems")) {
       fieldSchema.minItems = parseInt(attr.match(/\d+/)[0]);
     } else if (attr.startsWith("@maxItems")) {
@@ -6563,6 +6563,26 @@ function parseDSL(dsl) {
       rules.push(rule);
     } else if (line.startsWith("@can")) {
       permissions = handlePermExpression(line);
+    } else if (line.includes("array(")) {
+      const [field, type] = line.split(":").map((v) => v.trim());
+      const attributes = type.match(/@\w+(\(.*?\))?/g) || [];
+      const arrayTypeMatch = line.match(/array\((\w+)\)/);
+      const arrayRefTypeMatch = line.match(/array\(@ref\((\w+)\)/);
+      if (arrayTypeMatch) {
+        const itemType = arrayTypeMatch[1];
+        const nestedArray = { type: "array", items: { type: itemType } };
+        let context = stack[stack.length - 1];
+        this.handleAttributes(attributes, field, type, nestedArray, context, fieldPermissions, ui);
+        currentObject["properties"][field] = nestedArray;
+      } else if (arrayRefTypeMatch) {
+        const refName = type.match(/@ref\((.*?)\)/)[1];
+        const refValue = `#/$defs/${refName.toLowerCase()}`;
+        const nestedArray = { type: "array", items: { $ref: refValue } };
+        let context = stack[stack.length - 1];
+        let filteredAttributes = attributes.filter((attribute) => !attribute.includes(refName));
+        this.handleAttributes(filteredAttributes, field, type, nestedArray, context, fieldPermissions, ui);
+        currentObject["properties"][field] = nestedArray;
+      }
     } else {
       const field = line.substring(0, line.indexOf(":")).trim();
       const type = line.substring(line.indexOf(":") + 1).trim();
