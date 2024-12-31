@@ -200,7 +200,7 @@ function parseDSL(dsl) {
         const itemType = arrayTypeMatch[1];
         const nestedArray = { type: 'array', items: { type: itemType } };
         let context = stack[stack.length - 1];
-        this.handleAttributes(attributes, field, type, nestedArray, context, fieldPermissions, ui);
+        this.handleAttributes(attributes, field, type, nestedArray, context, fieldPermissions, context.ui);
         currentObject['properties'][field] = nestedArray;
       } else if (arrayRefTypeMatch) {
         const refName = type.match(/@ref\((.*?)\)/)[1];
@@ -208,7 +208,7 @@ function parseDSL(dsl) {
         const nestedArray = { type: 'array', items: { $ref: refValue } };
         let context = stack[stack.length - 1];
         let filteredAttributes = attributes.filter(attribute => !attribute.includes(refName));
-        this.handleAttributes(filteredAttributes, field, type, nestedArray, context, fieldPermissions, ui);
+        this.handleAttributes(filteredAttributes, field, type, nestedArray, context, fieldPermissions, context.ui);
         currentObject['properties'][field] = nestedArray;
       }      
     } else {

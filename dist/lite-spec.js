@@ -6457,7 +6457,7 @@ function handleIfExpression(expression) {
   }
   return schema;
 }
-function handleAttributes(attributes, field, type, fieldSchema, context, fieldPermissions, ui2) {
+function handleAttributes(attributes, field, type, fieldSchema, context, fieldPermissions, ui) {
   attributes.forEach((attr) => {
     if (attr.startsWith("@can")) {
       const perm = handlePermExpression(attr);
@@ -6472,7 +6472,7 @@ function handleAttributes(attributes, field, type, fieldSchema, context, fieldPe
       context.requiredFields.push(field);
     } else if (attr.startsWith("@ui")) {
       const uiName = attr.match(/@ui\((.*?)\)/)[1];
-      ui2[field] = uiName;
+      ui[field] = uiName;
     } else if (attr.startsWith("@minItems")) {
       fieldSchema.minItems = parseInt(attr.match(/\d+/)[0]);
     } else if (attr.startsWith("@maxItems")) {
@@ -6572,7 +6572,7 @@ function parseDSL(dsl) {
         const itemType = arrayTypeMatch[1];
         const nestedArray = { type: "array", items: { type: itemType } };
         let context = stack[stack.length - 1];
-        this.handleAttributes(attributes, field, type, nestedArray, context, fieldPermissions, ui);
+        this.handleAttributes(attributes, field, type, nestedArray, context, fieldPermissions, context.ui);
         currentObject["properties"][field] = nestedArray;
       } else if (arrayRefTypeMatch) {
         const refName = type.match(/@ref\((.*?)\)/)[1];
@@ -6580,7 +6580,7 @@ function parseDSL(dsl) {
         const nestedArray = { type: "array", items: { $ref: refValue } };
         let context = stack[stack.length - 1];
         let filteredAttributes = attributes.filter((attribute) => !attribute.includes(refName));
-        this.handleAttributes(filteredAttributes, field, type, nestedArray, context, fieldPermissions, ui);
+        this.handleAttributes(filteredAttributes, field, type, nestedArray, context, fieldPermissions, context.ui);
         currentObject["properties"][field] = nestedArray;
       }
     } else {
