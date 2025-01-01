@@ -6471,8 +6471,9 @@ function handleAttributes(attributes, field, type, fieldSchema, context, fieldPe
     } else if (attr.startsWith("@required")) {
       context.requiredFields.push(field);
     } else if (attr.startsWith("@ui")) {
-      const uiName = attr.match(/@ui\((.*?)\)/)[1];
-      ui[field] = uiName;
+      const m = attr.match(/@ui\((.*?)\)/)[1];
+      const [uiType = "", uiOrder = "", uiCollection = "", uiLookup = ""] = m.split(",");
+      ui[field] = { uiType, uiOrder, uiCollection, uiLookup };
     } else if (attr.startsWith("@minItems")) {
       fieldSchema.minItems = parseInt(attr.match(/\d+/)[0]);
     } else if (attr.startsWith("@maxItems")) {

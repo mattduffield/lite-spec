@@ -65,7 +65,8 @@ export class Index {
     generate.disabled = true;
 
     try {
-      const result = this.parseDSL(value);
+      // const result = this.parseDSL(value);
+      const result = window.litespec.parseDSL(value);
       output.value = JSON.stringify(result, null, 2);
       generate.disabled = false;
       generate.textContent = 'Go';
