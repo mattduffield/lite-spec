@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="h-full">
+<html lang="en" class="h-full theme-ocean">
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Model DSL</title>
@@ -7,15 +7,14 @@
   <!-- Google Fonts -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
   <link href="https://mattduffield.github.io/wave-css/dist/wave-css.min.css" rel="stylesheet" type="text/css">
-  <link rel="preload" href="https://mattduffield.github.io/wave-css/dist/wave-css.min.js" as="script">
-  <script type="module" src="https://mattduffield.github.io/wave-css/dist/wave-css.min.js" defer></script>
+  <script type="module" src="https://mattduffield.github.io/wave-css/dist/wave-css.min.js"></script>
   <script src="https://unpkg.com/htmx.org@2.0.2"></script>
 </head>
 
 <body class="flex flex-col flex-1 gap-4 h-full text-sm">
   <wc-form method="POST" class="flex flex-col flex-1 gap-4 h-full">
     <div class="my-2 px-4">
-      <wc-theme-selector theme="theme-ocean-blue" mode="light"></wc-theme-selector>
+      <wc-theme-selector theme="theme-ocean" mode="dark"></wc-theme-selector>
     </div>
 
     <div class="mt-4 mb-2 px-4 overflow-auto">
