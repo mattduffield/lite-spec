@@ -1,6 +1,13 @@
 # Lite Spec
 This is a domain specific language that converts Lite Spec syntax to JSON Schema.
 
+## Demo
+[Demo Site](https://mattduffield.github.io/litespec/views/)
+
+## Documentation
+- [LiteSpec documentation](docs/litespec.md)
+
+
 ## Build
 Execute the following command to build the bundler for the parser and highlighter.
 
@@ -74,5 +81,3 @@ model Customer object {
 }
 ```
 
-## Documentation
-- [LiteSpec documentation](docs/litespec.md)
