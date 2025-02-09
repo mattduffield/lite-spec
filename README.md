@@ -73,3 +73,6 @@ model Customer object {
   @can(view: "@self admin", add: "admin", edit: "admin editor", delete: "admin")  // This is a comment
 }
 ```
+
+## Documentation
+- [LiteSpec documentation](docs/litespec.md)
