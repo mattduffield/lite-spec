@@ -2,10 +2,10 @@
 This is a domain specific language that converts Lite Spec syntax to JSON Schema.
 
 ## Demo
-[Demo Site](https://mattduffield.github.io/litespec/views/)
+[Demo Site](https://mattduffield.github.io/lite-spec/views/)
 
 ## Documentation
-- [LiteSpec documentation](docs/litespec.md)
+- [LiteSpec documentation](docs/lite-spec.md)
 
 
 ## Build
