@@ -6457,7 +6457,7 @@ function handleIfExpression(expression) {
   }
   return schema;
 }
-function handleAttributes(attributes, field, type, fieldSchema, context, fieldPermissions, ui) {
+function handleAttributes(attributes, field, type, fieldSchema, context, fieldPermissions) {
   attributes.forEach((attr) => {
     if (attr.startsWith("@can")) {
       const perm = handlePermExpression(attr);
@@ -6473,7 +6473,10 @@ function handleAttributes(attributes, field, type, fieldSchema, context, fieldPe
     } else if (attr.startsWith("@ui")) {
       const m = attr.match(/@ui\((.*?)\)/)[1];
       const [uiType = "", uiOrder = 0, uiCollection = "", uiLookup = ""] = m.split(",");
-      ui[field] = { uiType, uiOrder: parseInt(uiOrder), uiCollection, uiLookup };
+      if (!context.ui) {
+        context.ui = {};
+      }
+      context.ui[field] = { uiType, uiOrder: parseInt(uiOrder), uiCollection, uiLookup };
     } else if (attr.startsWith("@minItems")) {
       fieldSchema.minItems = parseInt(attr.match(/\d+/)[0]);
     } else if (attr.startsWith("@maxItems")) {
@@ -6521,7 +6524,7 @@ function handleAttributes(attributes, field, type, fieldSchema, context, fieldPe
 }
 function parseDSL(dsl) {
   const lines = dsl.split("\n").map((line) => line.trim()).filter((line) => line !== "");
-  let schema = { $defs: {}, ui: {} };
+  let schema = { $defs: {} };
   let rules = [];
   let permissions = {};
   let fieldPermissions = [];
@@ -6529,18 +6532,35 @@ function parseDSL(dsl) {
   let currentObject = schema;
   lines.forEach((line) => {
     if (line.startsWith("def ")) {
+      rules = [];
+      permissions = {};
+      fieldPermissions = [];
       const [defName, defType] = line.match(/def (\w+) (object|array)/).slice(1);
-      let defSchema = defType === "object" ? { type: "object", properties: {} } : { type: "array", items: { type: "object", properties: {} } };
+      let defSchema = defType === "object" ? { type: "object", properties: {}, ui: {} } : { type: "array", items: { type: "object", properties: {}, ui: {} } };
       schema.$defs[defName.toLowerCase()] = defSchema;
       currentObject = defType === "object" ? defSchema : defSchema.items;
-      stack.push({ object: currentObject, requiredFields: [], ui: schema.ui });
+      stack.push({
+        object: currentObject,
+        requiredFields: [],
+        ui: currentObject.ui
+        // Reference to this def's UI
+      });
     } else if (line.startsWith("model ")) {
+      rules = [];
+      permissions = {};
+      fieldPermissions = [];
       const modelName = line.match(/model (\w+)/)[1];
       schema.title = modelName.toLowerCase();
       schema.type = "object";
       schema.properties = {};
+      schema.ui = {};
       currentObject = schema;
-      stack.push({ object: currentObject, requiredFields: [], ui: schema.ui });
+      stack.push({
+        object: currentObject,
+        requiredFields: [],
+        ui: schema.ui
+        // Reference to model's UI
+      });
     } else if (line.startsWith("}")) {
       const context = stack.pop();
       currentObject = context.object;
@@ -6556,6 +6576,9 @@ function parseDSL(dsl) {
       if (fieldPermissions.length > 0) {
         currentObject.permissions = { ...currentObject.permissions, field: fieldPermissions };
       }
+      rules = [];
+      permissions = {};
+      fieldPermissions = [];
       if (stack.length > 0) {
         currentObject = stack[stack.length - 1].object;
       }
@@ -6569,19 +6592,18 @@ function parseDSL(dsl) {
       const attributes = type.match(/@\w+(\(.*?\))?/g) || [];
       const arrayTypeMatch = line.match(/array\((\w+)\)/);
       const arrayRefTypeMatch = line.match(/array\(@ref\((\w+)\)/);
+      let context = stack[stack.length - 1];
       if (arrayTypeMatch) {
         const itemType = arrayTypeMatch[1];
         const nestedArray = { type: "array", items: { type: itemType } };
-        let context = stack[stack.length - 1];
-        this.handleAttributes(attributes, field, type, nestedArray, context, fieldPermissions, context.ui);
+        handleAttributes(attributes, field, type, nestedArray, context, fieldPermissions);
         currentObject["properties"][field] = nestedArray;
       } else if (arrayRefTypeMatch) {
         const refName = type.match(/@ref\((.*?)\)/)[1];
         const refValue = `#/$defs/${refName.toLowerCase()}`;
         const nestedArray = { type: "array", items: { $ref: refValue } };
-        let context = stack[stack.length - 1];
         let filteredAttributes = attributes.filter((attribute) => !attribute.includes(refName));
-        this.handleAttributes(filteredAttributes, field, type, nestedArray, context, fieldPermissions, context.ui);
+        handleAttributes(filteredAttributes, field, type, nestedArray, context, fieldPermissions);
         currentObject["properties"][field] = nestedArray;
       }
     } else {
@@ -6591,7 +6613,7 @@ function parseDSL(dsl) {
       const fieldType = type.split("@")[0].trim();
       const fieldSchema = { type: fieldType };
       let context = stack[stack.length - 1];
-      handleAttributes(attributes, field, type, fieldSchema, context, fieldPermissions, context.ui);
+      handleAttributes(attributes, field, type, fieldSchema, context, fieldPermissions);
       currentObject.properties[field] = fieldSchema;
     }
   });
@@ -6607,11 +6629,13 @@ function validateDataUsingSchema(schema, data) {
     return { valid: false, errors: validate.errors };
   }
 }
-if (!window.litespec) {
-  window.litespec = {};
+if (typeof window !== "undefined") {
+  if (!window.litespec) {
+    window.litespec = {};
+  }
+  window.litespec.handlePermExpression = handlePermExpression;
+  window.litespec.handleIfExpression = handleIfExpression;
+  window.litespec.handleAttributes = handleAttributes;
+  window.litespec.parseDSL = parseDSL;
+  window.litespec.validateDataUsingSchema = validateDataUsingSchema;
 }
-window.litespec.handlePermExpression = handlePermExpression;
-window.litespec.handleIfExpression = handleIfExpression;
-window.litespec.handleAttributes = handleAttributes;
-window.litespec.parseDSL = parseDSL;
-window.litespec.validateDataUsingSchema = validateDataUsingSchema;
