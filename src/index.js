@@ -1,5 +1,10 @@
 const Ajv = require("ajv")
 
+/**
+ * Parses a permission expression and returns a schema object
+ * @param {string} expression - The permission expression to parse
+ * @returns {object} The permission schema
+ */
 function handlePermExpression(expression) {
   const schema = {};
   const regex = /(\w+):\s*"([^"]*)"/g;
@@ -11,12 +16,15 @@ function handlePermExpression(expression) {
 
   for (const match of matches) {
     schema[match[1]] = match[2];
-    // console.log(`Full match: ${match[0]}`);
-    // console.log(`Group 1 (key): ${match[1]}`);
-    // console.log(`Group 2 (value): ${match[2]}`);
   }
   return schema;
 }
+
+/**
+ * Parses an IF expression and returns a schema object
+ * @param {string} expression - The IF expression to parse
+ * @returns {object} The IF schema
+ */
 function handleIfExpression(expression) {
   const regex = /@if\(([^:]+):\s*(.*?\(.*,*\)*?),\s*(.*?)\)$/;
   const match = expression.match(regex);
@@ -83,7 +91,17 @@ function handleIfExpression(expression) {
 
   return schema;
 }
-function handleAttributes(attributes, field, type, fieldSchema, context, fieldPermissions, ui) {
+
+/**
+ * Processes attributes and updates field schema and context accordingly
+ * @param {Array} attributes - Array of attribute strings
+ * @param {string} field - Field name
+ * @param {string} type - Field type string
+ * @param {object} fieldSchema - Schema object for the field
+ * @param {object} context - Context object with requiredFields and ui properties
+ * @param {Array} fieldPermissions - Array to collect field permissions
+ */
+function handleAttributes(attributes, field, type, fieldSchema, context, fieldPermissions) {
   attributes.forEach(attr => {
     if (attr.startsWith('@can')) {
       const perm = handlePermExpression(attr);
@@ -99,7 +117,12 @@ function handleAttributes(attributes, field, type, fieldSchema, context, fieldPe
     } else if (attr.startsWith('@ui')) {
       const m = attr.match(/@ui\((.*?)\)/)[1];
       const [uiType='', uiOrder=0, uiCollection='', uiLookup=''] = m.split(',');
-      ui[field] = {uiType, uiOrder: parseInt(uiOrder), uiCollection, uiLookup};
+      
+      // Add UI settings to the current object's UI container
+      if (!context.ui) {
+        context.ui = {};
+      }
+      context.ui[field] = {uiType, uiOrder: parseInt(uiOrder), uiCollection, uiLookup};
     } else if (attr.startsWith('@minItems')) {
       fieldSchema.minItems = parseInt(attr.match(/\d+/)[0]);
     } else if (attr.startsWith('@maxItems')) {
@@ -146,9 +169,14 @@ function handleAttributes(attributes, field, type, fieldSchema, context, fieldPe
   });
 }
 
+/**
+ * Parses a DSL string and returns a JSON Schema object
+ * @param {string} dsl - The DSL string to parse
+ * @returns {object} The parsed JSON Schema
+ */
 function parseDSL(dsl) {
   const lines = dsl.split('\n').map(line => line.trim()).filter(line => line !== '');
-  let schema = { $defs: {}, ui: {} };
+  let schema = { $defs: {} }; // No root UI object - each def will have its own
   let rules = [];
   let permissions = {};
   let fieldPermissions = [];
@@ -157,18 +185,40 @@ function parseDSL(dsl) {
 
   lines.forEach(line => {
     if (line.startsWith('def ')) {
+      // Reset collections for the new definition
+      rules = [];
+      permissions = {};
+      fieldPermissions = [];
+      
       const [defName, defType] = line.match(/def (\w+) (object|array)/).slice(1);
-      let defSchema = defType === 'object' ? { type: 'object', properties: {} } : { type: 'array', items: { type: 'object', properties: {} } };
+      let defSchema = defType === 'object' 
+        ? { type: 'object', properties: {}, ui: {} } // Add UI at def level
+        : { type: 'array', items: { type: 'object', properties: {}, ui: {} } }; // Add UI at def's items level
+      
       schema.$defs[defName.toLowerCase()] = defSchema;
       currentObject = defType === 'object' ? defSchema : defSchema.items;
-      stack.push({ object: currentObject, requiredFields: [], ui: schema.ui });
+      stack.push({ 
+        object: currentObject, 
+        requiredFields: [],
+        ui: currentObject.ui // Reference to this def's UI
+      });
     } else if (line.startsWith('model ')) {
+      // Reset collections for the model
+      rules = [];
+      permissions = {};
+      fieldPermissions = [];
+      
       const modelName = line.match(/model (\w+)/)[1];
       schema.title = modelName.toLowerCase();
       schema.type = 'object';
       schema.properties = {};
+      schema.ui = {}; // Add UI at model level
       currentObject = schema;
-      stack.push({ object: currentObject, requiredFields: [], ui: schema.ui });
+      stack.push({ 
+        object: currentObject, 
+        requiredFields: [],
+        ui: schema.ui // Reference to model's UI
+      });
     } else if (line.startsWith('}')) {
       const context = stack.pop();
       currentObject = context.object;
@@ -184,6 +234,12 @@ function parseDSL(dsl) {
       if (fieldPermissions.length > 0) {
         currentObject.permissions = { ...currentObject.permissions, field: fieldPermissions };
       }
+      
+      // Reset for next section
+      rules = [];
+      permissions = {};
+      fieldPermissions = [];
+      
       if (stack.length > 0) {
         currentObject = stack[stack.length - 1].object;
       }
@@ -197,19 +253,20 @@ function parseDSL(dsl) {
       const attributes = type.match(/@\w+(\(.*?\))?/g) || [];
       const arrayTypeMatch = line.match(/array\((\w+)\)/);
       const arrayRefTypeMatch = line.match(/array\(@ref\((\w+)\)/);
+      
+      let context = stack[stack.length - 1];
+      
       if (arrayTypeMatch) {
         const itemType = arrayTypeMatch[1];
         const nestedArray = { type: 'array', items: { type: itemType } };
-        let context = stack[stack.length - 1];
-        this.handleAttributes(attributes, field, type, nestedArray, context, fieldPermissions, context.ui);
+        handleAttributes(attributes, field, type, nestedArray, context, fieldPermissions);
         currentObject['properties'][field] = nestedArray;
       } else if (arrayRefTypeMatch) {
         const refName = type.match(/@ref\((.*?)\)/)[1];
         const refValue = `#/$defs/${refName.toLowerCase()}`;
         const nestedArray = { type: 'array', items: { $ref: refValue } };
-        let context = stack[stack.length - 1];
         let filteredAttributes = attributes.filter(attribute => !attribute.includes(refName));
-        this.handleAttributes(filteredAttributes, field, type, nestedArray, context, fieldPermissions, context.ui);
+        handleAttributes(filteredAttributes, field, type, nestedArray, context, fieldPermissions);
         currentObject['properties'][field] = nestedArray;
       }      
     } else {
@@ -219,7 +276,7 @@ function parseDSL(dsl) {
       const fieldType = type.split('@')[0].trim();
       const fieldSchema = { type: fieldType };
       let context = stack[stack.length - 1];
-      handleAttributes(attributes, field, type, fieldSchema, context, fieldPermissions, context.ui);
+      handleAttributes(attributes, field, type, fieldSchema, context, fieldPermissions);
       currentObject.properties[field] = fieldSchema;
     }
   });
@@ -227,185 +284,12 @@ function parseDSL(dsl) {
   return schema;
 }
 
-
-function handleAttributes2(attributes, field, type, fieldSchema, context, fieldPermissions, ui) {
-  attributes.forEach(attr => {
-    if (attr.startsWith('@can')) {
-      const perm = this.handlePermExpression(attr);
-      fieldPermissions.push({[field]: perm});
-    } else if (attr.startsWith('@enum')) {
-      const enums = type.match(/@enum\((.*?)\)/)[1];
-      fieldSchema.enum = enums.split(',').map(m => m.trim());
-    } else if (attr.startsWith('@ref')) {
-      const refName = type.match(/@ref\((.*?)\)/)[1];
-      fieldSchema['$ref'] = `#/$defs/${refName.toLowerCase()}`;
-    } else if (attr.startsWith('@required')) {
-      context.requiredFields.push(field);
-    } else if (attr.startsWith('@ui')) {
-      const uiName = type.match(/@ui\((.*?)\)/)[1];
-      ui[field] = uiName;
-    } else if (attr.startsWith('@minItems')) {
-      fieldSchema.minItems = parseInt(attr.match(/\d+/)[0]);
-    } else if (attr.startsWith('@maxItems')) {
-      fieldSchema.maxItems = parseInt(attr.match(/\d+/)[0]);
-    } else if (attr.startsWith('@uniqueItems')) {
-      fieldSchema.uniqueItems = true;
-    } else if (attr.startsWith('@minLength')) {
-      fieldSchema.minLength = parseInt(attr.match(/\d+/)[0]);
-    } else if (attr.startsWith('@maxLength')) {
-      fieldSchema.maxLength = parseInt(attr.match(/\d+/)[0]);
-    } else if (attr.startsWith('@exclusiveMinimum')) {
-      fieldSchema.exclusiveMinimum = parseInt(attr.match(/\d+/)[0]);
-    } else if (attr.startsWith('@exclusiveMaximum')) {
-      fieldSchema.exclusiveMaximum = parseInt(attr.match(/\d+/)[0]);
-    } else if (attr.startsWith('@minimum')) {
-      fieldSchema.minimum = parseInt(attr.match(/\d+/)[0]);
-    } else if (attr.startsWith('@maximum')) {
-      fieldSchema.maximum = parseInt(attr.match(/\d+/)[0]);
-    } else if (attr.startsWith('@multipleOf')) {
-      fieldSchema.multipleOf = parseInt(attr.match(/\d+/)[0]);
-    } else if (attr.startsWith('@format')) {
-      const format = attr.match(/\((.*?)\)/)[1];
-      if (format == 'date-time') {
-        fieldSchema.anyOf = [
-          {
-            "type": "string",
-            "format": "date-time"
-          },
-          {
-            "type": "string",
-            "enum": [""]
-          }
-        ];
-        delete fieldSchema.type;
-      } else {
-        fieldSchema.format = attr.match(/\((.*?)\)/)[1];          
-      }
-    } else if (attr.startsWith('@default')) {
-      const defaultValue = attr.match(/\((.*?)\)/)[1];
-      if (defaultValue === '""') {
-        fieldSchema.default = "";
-      }
-      else if (defaultValue === 'true' || defaultValue === 'false') {
-        fieldSchema.default = defaultValue === 'true' ? true : false;
-      } else if (!isNaN(defaultValue)) {
-        const decimalPlacesMatch = defaultValue.match(/\.(\d+)/);
-        const decimalPlaces = decimalPlacesMatch ? decimalPlacesMatch[1].length : 0;
-        const value = parseFloat(defaultValue).toFixed(decimalPlaces);
-        fieldSchema.default = parseFloat(value);
-      } else {
-        fieldSchema.default = defaultValue;
-      }
-    }
-  });
-}
-function parseDSL2(dsl) {
-  const lines = dsl.split('\n').map(line => line.trim()).filter(line => line !== '');
-  let ui = {};
-  let schema = { $defs: {}, ui: ui };
-  let rules = [];
-  let permissions = {};
-  let fieldPermissions = [];
-  let stack = [];
-  let currentObject = schema;
-
-  lines.forEach(line => {
-    if (line.startsWith('def ')) {
-      const [defName, defType] = line.match(/def (\w+) (object|array)/).slice(1);
-      let defSchema;
-      rules = [];
-      permissions = {};
-      fieldPermissions = [];
-      if (defType === 'object') {
-        defSchema = { type: 'object', properties: {} };
-      } else if (defType === 'array') {
-        defSchema = { type: 'array', items: { type: 'object', properties: {} } };
-      }
-      schema.$defs[defName.toLowerCase()] = defSchema;
-      currentObject = defSchema.type === 'object' ? defSchema : defSchema.items;
-      stack.push({ object: currentObject, requiredFields: [], ui: ui });
-    } else if (line.startsWith('model ')) {
-      const modelName = line.match(/model (\w+)/)[1];
-      rules = [];
-      permissions = {};
-      fieldPermissions = [];
-      schema.title = modelName.toLowerCase();
-      schema.type = 'object';
-      schema.properties = {};
-      currentObject = schema;
-      stack.push({ object: currentObject, requiredFields: [], ui: ui });
-    } else if (line.startsWith('}')) {
-      const context = stack.pop();
-      currentObject = context.object;
-      if (context.requiredFields.length > 0) {
-        currentObject['required'] = context.requiredFields;
-      }
-      if (rules.length > 0) {
-        currentObject.allOf = rules;  
-      }
-      if (Object.entries(permissions).length > 0) {
-        if (!currentObject.hasOwnProperty('permissions')) {
-          currentObject.permissions = {};
-        }
-        currentObject.permissions.collection = permissions;
-        // currentObject.permissions = permissions;  
-      }
-      if (fieldPermissions.length > 0) {
-        if (!currentObject.hasOwnProperty('permissions')) {
-          currentObject.permissions = {};
-        }
-        currentObject.permissions.field = fieldPermissions;
-        // currentObject.fieldPermissions = fieldPermissions;
-      }
-      if (stack.length > 0) {
-        currentObject = stack[stack.length - 1].object;
-      }
-    } else if (line.startsWith('@if')) {
-      const rule = this.handleIfExpression(line);
-      rules.push(rule);
-    } else if (line.startsWith('@can')) {
-      const perm = this.handlePermExpression(line);
-      permissions = perm;
-    } else if (line.includes('array(')) {
-      const [field, type] = line.split(':').map(v => v.trim());
-      const attributes = type.match(/@\w+(\(.*?\))?/g) || [];
-      const arrayTypeMatch = line.match(/array\((\w+)\)/);
-      const arrayRefTypeMatch = line.match(/array\(@ref\((\w+)\)/);
-      if (arrayTypeMatch) {
-        const itemType = arrayTypeMatch[1];
-        const nestedArray = { type: 'array', items: { type: itemType } };
-        let context = stack[stack.length - 1];
-        this.handleAttributes(attributes, field, type, nestedArray, context, fieldPermissions, ui);
-        currentObject['properties'][field] = nestedArray;
-      } else if (arrayRefTypeMatch) {
-        const refName = type.match(/@ref\((.*?)\)/)[1];
-        const refValue = `#/$defs/${refName.toLowerCase()}`;
-        const nestedArray = { type: 'array', items: { $ref: refValue } };
-        let context = stack[stack.length - 1];
-        let filteredAttributes = attributes.filter(attribute => !attribute.includes(refName));
-        this.handleAttributes(filteredAttributes, field, type, nestedArray, context, fieldPermissions, ui);
-        currentObject['properties'][field] = nestedArray;
-      }
-    } else {
-      const field = line.substring(0, line.indexOf(':')).trim();
-      const type = line.substring(line.indexOf(':') + 1).trim();
-      // const [field, type] = line.split(':').map(v => v.trim());
-      const attributes = type.match(/@\w+(\(.*?\))?/g) || [];
-      const fieldType = type.split('@')[0].trim();
-      const fieldSchema = {};
-      if (fieldType == "decimal") {
-        fieldSchema.bsonType = "Decimal128";
-      } else {
-        fieldSchema.type = fieldType;
-      }
-      let context = stack[stack.length - 1];
-      this.handleAttributes(attributes, field, type, fieldSchema, context, fieldPermissions, ui);
-      currentObject['properties'][field] = fieldSchema;
-    }
-  });
-
-  return schema;
-}
+/**
+ * Validates data against a JSON Schema
+ * @param {object} schema - The JSON Schema to validate against
+ * @param {object} data - The data to validate
+ * @returns {object} Validation result with valid flag and errors
+ */
 function validateDataUsingSchema(schema, data) {
   const ajv = new Ajv({ strict: false }); // Create an instance of Ajv
   const validate = ajv.compile(schema); // Compile the JSON Schema
@@ -417,11 +301,15 @@ function validateDataUsingSchema(schema, data) {
     return { valid: false, errors: validate.errors };
   }
 }
-if (!window.litespec) {
-  window.litespec = {};
+
+// Export the functions to the global scope if in a browser environment
+if (typeof window !== 'undefined') {
+  if (!window.litespec) {
+    window.litespec = {};
+  }
+  window.litespec.handlePermExpression = handlePermExpression;
+  window.litespec.handleIfExpression = handleIfExpression;
+  window.litespec.handleAttributes = handleAttributes;
+  window.litespec.parseDSL = parseDSL;
+  window.litespec.validateDataUsingSchema = validateDataUsingSchema;
 }
-window.litespec.handlePermExpression = handlePermExpression;
-window.litespec.handleIfExpression = handleIfExpression;
-window.litespec.handleAttributes = handleAttributes;
-window.litespec.parseDSL = parseDSL;
-window.litespec.validateDataUsingSchema = validateDataUsingSchema;
