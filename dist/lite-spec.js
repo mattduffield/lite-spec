@@ -6472,7 +6472,7 @@ function handleAttributes(attributes, field, type, fieldSchema, context, fieldPe
       context.requiredFields.push(field);
     } else if (attr.startsWith("@ui")) {
       const m = attr.match(/@ui\((.*?)\)/)[1];
-      const [uiType = "", uiListType = "", uiOrder = 0, uiGroup = "", uiCollection = "", uiLookup = ""] = m.split(",");
+      const [uiType = "", uiListType = "", uiGroup = "", uiOrder = 0, uiCollection = "", uiLookup = ""] = m.split(",");
       if (!context.ui) {
         context.ui = {};
       }
