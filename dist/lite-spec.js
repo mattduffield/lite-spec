@@ -6472,11 +6472,11 @@ function handleAttributes(attributes, field, type, fieldSchema, context, fieldPe
       context.requiredFields.push(field);
     } else if (attr.startsWith("@ui")) {
       const m = attr.match(/@ui\((.*?)\)/)[1];
-      const [uiType = "", uiListType = "", uiGroup = "", uiOrder = 0, uiCollection = "", uiLookup = ""] = m.split(",");
+      const [uiType = "", uiListType = "", uiGroup = "", uiOrder = 0, uiLookup = "", uiCollection = "", uiCollectionDisplayMember = "", uiCollectionValueMember = ""] = m.split(",");
       if (!context.ui) {
         context.ui = {};
       }
-      context.ui[field] = { uiType, uiListType, uiOrder: parseInt(uiOrder), uiGroup, uiCollection, uiLookup };
+      context.ui[field] = { uiType, uiListType, uiOrder: parseInt(uiOrder), uiGroup, uiLookup, uiCollection, uiCollectionDisplayMember, uiCollectionValueMember };
     } else if (attr.startsWith("@minItems")) {
       fieldSchema.minItems = parseInt(attr.match(/\d+/)[0]);
     } else if (attr.startsWith("@maxItems")) {
