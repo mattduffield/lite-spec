@@ -6395,7 +6395,7 @@ var require_ajv = __commonJS({
 var Ajv = require_ajv();
 function handleBreadcrumbExpression(expression) {
   const m = expression.match(/@breadcrumb\((.*?)\)/)[1];
-  const [name = "", suffix = "asc"] = m.split(",");
+  const [name = "", suffix = ""] = m.split(",");
   return { name, suffix };
 }
 function handleSortExpression(expression) {
