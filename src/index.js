@@ -1,6 +1,17 @@
 const Ajv = require("ajv")
 
 /**
+ * Parses an sort expression and returns a sort rule
+ * @param {string} expression - The sort expression to parse
+ * @returns {object} The sort rule
+ */
+function handleSortExpression(expression) {
+  const m = attr.match(/@sort\((.*?)\)/)[1];
+  const [name='', dir='asc'] = m.split(',');
+  return {name, dir};
+}
+
+/**
  * Parses a permission expression and returns a schema object
  * @param {string} expression - The permission expression to parse
  * @returns {object} The permission schema
@@ -178,6 +189,7 @@ function parseDSL(dsl) {
   const lines = dsl.split('\n').map(line => line.trim()).filter(line => line !== '');
   let schema = { $defs: {} }; // No root UI object - each def will have its own
   let rules = [];
+  let sortRules = [];
   let permissions = {};
   let fieldPermissions = [];
   let stack = [];
@@ -187,6 +199,7 @@ function parseDSL(dsl) {
     if (line.startsWith('def ')) {
       // Reset collections for the new definition
       rules = [];
+      sortRules = [];
       permissions = {};
       fieldPermissions = [];
       
@@ -205,6 +218,7 @@ function parseDSL(dsl) {
     } else if (line.startsWith('model ')) {
       // Reset collections for the model
       rules = [];
+      sortRules = [];
       permissions = {};
       fieldPermissions = [];
       
@@ -228,6 +242,9 @@ function parseDSL(dsl) {
       if (rules.length > 0) {
         currentObject.allOf = rules;
       }
+      if (sortRules.length > 0) {
+        currentObject.sort = sortRules;
+      }
       if (Object.keys(permissions).length > 0) {
         currentObject.permissions = { collection: permissions };
       }
@@ -237,6 +254,7 @@ function parseDSL(dsl) {
       
       // Reset for next section
       rules = [];
+      sortRules = [];
       permissions = {};
       fieldPermissions = [];
       
@@ -246,6 +264,9 @@ function parseDSL(dsl) {
     } else if (line.startsWith('@if')) {
       const rule = handleIfExpression(line);
       rules.push(rule);
+    } else if (line.startsWith('@sort')) {
+      const rule = handleSortExpression(line);
+      sortRules.push(rule);
     } else if (line.startsWith('@can')) {
       permissions = handlePermExpression(line);
     } else if (line.includes('array(')) {
