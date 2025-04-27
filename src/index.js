@@ -6,7 +6,7 @@ const Ajv = require("ajv")
  * @returns {object} The sort rule
  */
 function handleSortExpression(expression) {
-  const m = attr.match(/@sort\((.*?)\)/)[1];
+  const m = expression.match(/@sort\((.*?)\)/)[1];
   const [name='', dir='asc'] = m.split(',');
   return {name, dir};
 }

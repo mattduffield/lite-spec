@@ -6394,7 +6394,7 @@ var require_ajv = __commonJS({
 // src/index.js
 var Ajv = require_ajv();
 function handleSortExpression(expression) {
-  const m = attr.match(/@sort\((.*?)\)/)[1];
+  const m = expression.match(/@sort\((.*?)\)/)[1];
   const [name = "", dir = "asc"] = m.split(",");
   return { name, dir };
 }
@@ -6463,47 +6463,47 @@ function handleIfExpression(expression) {
   return schema;
 }
 function handleAttributes(attributes, field, type, fieldSchema, context, fieldPermissions) {
-  attributes.forEach((attr2) => {
-    if (attr2.startsWith("@can")) {
-      const perm = handlePermExpression(attr2);
+  attributes.forEach((attr) => {
+    if (attr.startsWith("@can")) {
+      const perm = handlePermExpression(attr);
       fieldPermissions.push({ [field]: perm });
-    } else if (attr2.startsWith("@enum")) {
+    } else if (attr.startsWith("@enum")) {
       const enums = type.match(/@enum\((.*?)\)/)[1];
       fieldSchema.enum = enums.split(",").map((m) => m.trim());
-    } else if (attr2.startsWith("@ref")) {
+    } else if (attr.startsWith("@ref")) {
       const refName = type.match(/@ref\((.*?)\)/)[1];
       fieldSchema["$ref"] = `#/$defs/${refName.toLowerCase()}`;
-    } else if (attr2.startsWith("@required")) {
+    } else if (attr.startsWith("@required")) {
       context.requiredFields.push(field);
-    } else if (attr2.startsWith("@ui")) {
-      const m = attr2.match(/@ui\((.*?)\)/)[1];
+    } else if (attr.startsWith("@ui")) {
+      const m = attr.match(/@ui\((.*?)\)/)[1];
       const [uiType = "", uiListType = "", uiGroup = "", uiOrder = 0, uiLookup = "", uiCollection = "", uiCollectionDisplayMember = "", uiCollectionValueMember = ""] = m.split(",");
       if (!context.ui) {
         context.ui = {};
       }
       context.ui[field] = { uiType, uiListType, uiOrder: parseInt(uiOrder), uiGroup, uiLookup, uiCollection, uiCollectionDisplayMember, uiCollectionValueMember };
-    } else if (attr2.startsWith("@minItems")) {
-      fieldSchema.minItems = parseInt(attr2.match(/\d+/)[0]);
-    } else if (attr2.startsWith("@maxItems")) {
-      fieldSchema.maxItems = parseInt(attr2.match(/\d+/)[0]);
-    } else if (attr2.startsWith("@uniqueItems")) {
+    } else if (attr.startsWith("@minItems")) {
+      fieldSchema.minItems = parseInt(attr.match(/\d+/)[0]);
+    } else if (attr.startsWith("@maxItems")) {
+      fieldSchema.maxItems = parseInt(attr.match(/\d+/)[0]);
+    } else if (attr.startsWith("@uniqueItems")) {
       fieldSchema.uniqueItems = true;
-    } else if (attr2.startsWith("@minLength")) {
-      fieldSchema.minLength = parseInt(attr2.match(/\d+/)[0]);
-    } else if (attr2.startsWith("@maxLength")) {
-      fieldSchema.maxLength = parseInt(attr2.match(/\d+/)[0]);
-    } else if (attr2.startsWith("@exclusiveMinimum")) {
-      fieldSchema.exclusiveMinimum = parseInt(attr2.match(/\d+/)[0]);
-    } else if (attr2.startsWith("@exclusiveMaximum")) {
-      fieldSchema.exclusiveMaximum = parseInt(attr2.match(/\d+/)[0]);
-    } else if (attr2.startsWith("@minimum")) {
-      fieldSchema.minimum = parseInt(attr2.match(/\d+/)[0]);
-    } else if (attr2.startsWith("@maximum")) {
-      fieldSchema.maximum = parseInt(attr2.match(/\d+/)[0]);
-    } else if (attr2.startsWith("@multipleOf")) {
-      fieldSchema.multipleOf = parseInt(attr2.match(/\d+/)[0]);
-    } else if (attr2.startsWith("@format")) {
-      const format = attr2.match(/\((.*?)\)/)[1];
+    } else if (attr.startsWith("@minLength")) {
+      fieldSchema.minLength = parseInt(attr.match(/\d+/)[0]);
+    } else if (attr.startsWith("@maxLength")) {
+      fieldSchema.maxLength = parseInt(attr.match(/\d+/)[0]);
+    } else if (attr.startsWith("@exclusiveMinimum")) {
+      fieldSchema.exclusiveMinimum = parseInt(attr.match(/\d+/)[0]);
+    } else if (attr.startsWith("@exclusiveMaximum")) {
+      fieldSchema.exclusiveMaximum = parseInt(attr.match(/\d+/)[0]);
+    } else if (attr.startsWith("@minimum")) {
+      fieldSchema.minimum = parseInt(attr.match(/\d+/)[0]);
+    } else if (attr.startsWith("@maximum")) {
+      fieldSchema.maximum = parseInt(attr.match(/\d+/)[0]);
+    } else if (attr.startsWith("@multipleOf")) {
+      fieldSchema.multipleOf = parseInt(attr.match(/\d+/)[0]);
+    } else if (attr.startsWith("@format")) {
+      const format = attr.match(/\((.*?)\)/)[1];
       if (format === "date-time") {
         fieldSchema.anyOf = [
           { type: "string", format: "date-time" },
@@ -6513,8 +6513,8 @@ function handleAttributes(attributes, field, type, fieldSchema, context, fieldPe
       } else {
         fieldSchema.format = format;
       }
-    } else if (attr2.startsWith("@default")) {
-      const defaultValue = attr2.match(/\((.*?)\)/)[1];
+    } else if (attr.startsWith("@default")) {
+      const defaultValue = attr.match(/\((.*?)\)/)[1];
       if (defaultValue === '""') {
         fieldSchema.default = "";
       } else if (defaultValue === "true" || defaultValue === "false") {
