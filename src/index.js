@@ -1,6 +1,17 @@
 const Ajv = require("ajv")
 
 /**
+ * Parses an breadcrumb expression and returns a sort rule
+ * @param {string} expression - The breadcrumb expression to parse
+ * @returns {object} The breadcrumb rule
+ */
+function handleBreadcrumbExpression(expression) {
+  const m = expression.match(/@breadcrumb\((.*?)\)/)[1];
+  const [name='', suffix='asc'] = m.split(',');
+  return {name, suffix};
+}
+
+/**
  * Parses an sort expression and returns a sort rule
  * @param {string} expression - The sort expression to parse
  * @returns {object} The sort rule
@@ -190,6 +201,7 @@ function parseDSL(dsl) {
   let schema = { $defs: {} }; // No root UI object - each def will have its own
   let rules = [];
   let sortRules = [];
+  let breadcrumbRules = [];
   let permissions = {};
   let fieldPermissions = [];
   let stack = [];
@@ -200,6 +212,7 @@ function parseDSL(dsl) {
       // Reset collections for the new definition
       rules = [];
       sortRules = [];
+      breadcrumbRules = [];
       permissions = {};
       fieldPermissions = [];
       
@@ -219,6 +232,7 @@ function parseDSL(dsl) {
       // Reset collections for the model
       rules = [];
       sortRules = [];
+      breadcrumbRules = [];
       permissions = {};
       fieldPermissions = [];
       
@@ -245,6 +259,9 @@ function parseDSL(dsl) {
       if (sortRules.length > 0) {
         currentObject.sort = sortRules;
       }
+      if (breadcrumbRules.length > 0) {
+        currentObject.breadcrumb = breadcrumbRules;
+      }
       if (Object.keys(permissions).length > 0) {
         currentObject.permissions = { collection: permissions };
       }
@@ -255,6 +272,7 @@ function parseDSL(dsl) {
       // Reset for next section
       rules = [];
       sortRules = [];
+      breadcrumbRules = [];
       permissions = {};
       fieldPermissions = [];
       
@@ -264,6 +282,9 @@ function parseDSL(dsl) {
     } else if (line.startsWith('@if')) {
       const rule = handleIfExpression(line);
       rules.push(rule);
+    } else if (line.startsWith('@breadcrumb')) {
+      const rule = handleBreadcrumbExpression(line);
+      breadcrumbRules.push(rule);
     } else if (line.startsWith('@sort')) {
       const rule = handleSortExpression(line);
       sortRules.push(rule);

@@ -6393,6 +6393,11 @@ var require_ajv = __commonJS({
 
 // src/index.js
 var Ajv = require_ajv();
+function handleBreadcrumbExpression(expression) {
+  const m = expression.match(/@breadcrumb\((.*?)\)/)[1];
+  const [name = "", suffix = "asc"] = m.split(",");
+  return { name, suffix };
+}
 function handleSortExpression(expression) {
   const m = expression.match(/@sort\((.*?)\)/)[1];
   const [name = "", dir = "asc"] = m.split(",");
@@ -6532,6 +6537,7 @@ function parseDSL(dsl) {
   let schema = { $defs: {} };
   let rules = [];
   let sortRules = [];
+  let breadcrumbRules = [];
   let permissions = {};
   let fieldPermissions = [];
   let stack = [];
@@ -6540,6 +6546,7 @@ function parseDSL(dsl) {
     if (line.startsWith("def ")) {
       rules = [];
       sortRules = [];
+      breadcrumbRules = [];
       permissions = {};
       fieldPermissions = [];
       const [defName, defType] = line.match(/def (\w+) (object|array)/).slice(1);
@@ -6555,6 +6562,7 @@ function parseDSL(dsl) {
     } else if (line.startsWith("model ")) {
       rules = [];
       sortRules = [];
+      breadcrumbRules = [];
       permissions = {};
       fieldPermissions = [];
       const modelName = line.match(/model (\w+)/)[1];
@@ -6581,6 +6589,9 @@ function parseDSL(dsl) {
       if (sortRules.length > 0) {
         currentObject.sort = sortRules;
       }
+      if (breadcrumbRules.length > 0) {
+        currentObject.breadcrumb = breadcrumbRules;
+      }
       if (Object.keys(permissions).length > 0) {
         currentObject.permissions = { collection: permissions };
       }
@@ -6589,6 +6600,7 @@ function parseDSL(dsl) {
       }
       rules = [];
       sortRules = [];
+      breadcrumbRules = [];
       permissions = {};
       fieldPermissions = [];
       if (stack.length > 0) {
@@ -6597,6 +6609,9 @@ function parseDSL(dsl) {
     } else if (line.startsWith("@if")) {
       const rule = handleIfExpression(line);
       rules.push(rule);
+    } else if (line.startsWith("@breadcrumb")) {
+      const rule = handleBreadcrumbExpression(line);
+      breadcrumbRules.push(rule);
     } else if (line.startsWith("@sort")) {
       const rule = handleSortExpression(line);
       sortRules.push(rule);
