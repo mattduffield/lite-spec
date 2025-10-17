@@ -404,14 +404,3 @@ if (typeof window !== 'undefined') {
   window.litespec.parseDSL = parseDSL;
   window.litespec.validateDataUsingSchema = validateDataUsingSchema;
 }
-
-// Export for Node.js environment
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    handlePermExpression,
-    handleIfExpression,
-    handleAttributes,
-    parseDSL,
-    validateDataUsingSchema
-  };
-}
