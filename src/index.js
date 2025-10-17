@@ -176,6 +176,12 @@ function handleAttributes(attributes, field, type, fieldSchema, context, fieldPe
       } else {
         fieldSchema.format = format;
       }
+    } else if (attr.startsWith('@pattern')) {
+      // Extract pattern handling nested parentheses
+      const match = attr.match(/@pattern\((.*)\)$/);
+      if (match) {
+        fieldSchema.pattern = match[1];
+      }
     } else if (attr.startsWith('@default')) {
       const defaultValue = attr.match(/\((.*?)\)/)[1];
       if (defaultValue === '""') {
@@ -189,6 +195,48 @@ function handleAttributes(attributes, field, type, fieldSchema, context, fieldPe
       }
     }
   });
+}
+
+/**
+ * Extracts attributes from a type string, handling nested parentheses
+ * @param {string} typeString - The type string containing attributes
+ * @returns {Array} Array of attribute strings
+ */
+function extractAttributes(typeString) {
+  const attributes = [];
+  let i = 0;
+
+  while (i < typeString.length) {
+    // Find next @ symbol
+    if (typeString[i] === '@') {
+      let start = i;
+      i++; // Move past @
+
+      // Extract attribute name
+      while (i < typeString.length && /\w/.test(typeString[i])) {
+        i++;
+      }
+
+      // Check if there's a parenthesis
+      if (i < typeString.length && typeString[i] === '(') {
+        i++; // Move past opening (
+        let depth = 1;
+
+        // Find matching closing parenthesis
+        while (i < typeString.length && depth > 0) {
+          if (typeString[i] === '(') depth++;
+          else if (typeString[i] === ')') depth--;
+          i++;
+        }
+      }
+
+      attributes.push(typeString.substring(start, i));
+    } else {
+      i++;
+    }
+  }
+
+  return attributes;
 }
 
 /**
@@ -292,12 +340,12 @@ function parseDSL(dsl) {
       permissions = handlePermExpression(line);
     } else if (line.includes('array(')) {
       const [field, type] = line.split(':').map(v => v.trim());
-      const attributes = type.match(/@\w+(\(.*?\))?/g) || [];
+      const attributes = extractAttributes(type);
       const arrayTypeMatch = line.match(/array\((\w+)\)/);
       const arrayRefTypeMatch = line.match(/array\(@ref\((\w+)\)/);
-      
+
       let context = stack[stack.length - 1];
-      
+
       if (arrayTypeMatch) {
         const itemType = arrayTypeMatch[1];
         const nestedArray = { type: 'array', items: { type: itemType } };
@@ -310,11 +358,12 @@ function parseDSL(dsl) {
         let filteredAttributes = attributes.filter(attribute => !attribute.includes(refName));
         handleAttributes(filteredAttributes, field, type, nestedArray, context, fieldPermissions);
         currentObject['properties'][field] = nestedArray;
-      }      
+      }
     } else {
       const field = line.substring(0, line.indexOf(':')).trim();
       const type = line.substring(line.indexOf(':') + 1).trim();
-      const attributes = type.match(/@\w+(\(.*?\))?/g) || [];
+      // Extract attributes using balanced parentheses matching
+      const attributes = extractAttributes(type);
       const fieldType = type.split('@')[0].trim();
       const fieldSchema = { type: fieldType };
       let context = stack[stack.length - 1];
@@ -354,4 +403,15 @@ if (typeof window !== 'undefined') {
   window.litespec.handleAttributes = handleAttributes;
   window.litespec.parseDSL = parseDSL;
   window.litespec.validateDataUsingSchema = validateDataUsingSchema;
+}
+
+// Export for Node.js environment
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    handlePermExpression,
+    handleIfExpression,
+    handleAttributes,
+    parseDSL,
+    validateDataUsingSchema
+  };
 }
