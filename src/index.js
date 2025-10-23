@@ -188,10 +188,12 @@ function handleAttributes(attributes, field, type, fieldSchema, context, fieldPe
         fieldSchema.default = "";
       } else if (defaultValue === 'true' || defaultValue === 'false') {
         fieldSchema.default = defaultValue === 'true';
-      } else if (!isNaN(defaultValue)) {
+      } else if (!isNaN(defaultValue) && (fieldSchema.type === 'number' || fieldSchema.type === 'integer')) {
+        // Only convert to number if field type is numeric
         fieldSchema.default = parseFloat(defaultValue);
       } else {
-        fieldSchema.default = defaultValue;
+        // For string types and others, keep as string (remove quotes if present)
+        fieldSchema.default = defaultValue.replace(/^["']|["']$/g, '');
       }
     }
   });

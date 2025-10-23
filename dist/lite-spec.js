@@ -6529,10 +6529,10 @@ function handleAttributes(attributes, field, type, fieldSchema, context, fieldPe
         fieldSchema.default = "";
       } else if (defaultValue === "true" || defaultValue === "false") {
         fieldSchema.default = defaultValue === "true";
-      } else if (!isNaN(defaultValue)) {
+      } else if (!isNaN(defaultValue) && (fieldSchema.type === "number" || fieldSchema.type === "integer")) {
         fieldSchema.default = parseFloat(defaultValue);
       } else {
-        fieldSchema.default = defaultValue;
+        fieldSchema.default = defaultValue.replace(/^["']|["']$/g, "");
       }
     }
   });
