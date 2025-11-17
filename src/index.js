@@ -48,65 +48,132 @@ function handlePermExpression(expression) {
  * @returns {object} The IF schema
  */
 function handleIfExpression(expression) {
-  const regex = /@if\(([^:]+):\s*(.*?\(.*,*\)*?),\s*(.*?)\)$/;
-  const match = expression.match(regex);
-
-  if (!match) {
+  // Extract property, condition, and action parts manually to handle nested parens
+  const ifMatch = expression.match(/@if\(([^:]+):\s*/);
+  if (!ifMatch) {
     throw new Error("Invalid IF expression format!");
   }
 
-  const [expr, property, cond, action] = expression.match(regex);
-  const condAttributes = cond.match(/@\w+(\(.*?\))?/g) || [];
-  const actionAttributes = action.match(/@\w+(\(.*?\))?/g) || [];
+  const property = ifMatch[1];
+  let remaining = expression.substring(ifMatch[0].length);
 
-  // Construct the JSONSchema 'if' part
+  // Find the split between condition and action by tracking parentheses
+  let depth = 0;
+  let splitIndex = -1;
+
+  for (let i = 0; i < remaining.length; i++) {
+    if (remaining[i] === '(') depth++;
+    else if (remaining[i] === ')') depth--;
+    else if (remaining[i] === ',' && depth === 0) {
+      splitIndex = i;
+      break;
+    }
+  }
+
+  if (splitIndex === -1) {
+    throw new Error("Invalid IF expression format - missing comma separator!");
+  }
+
+  const cond = remaining.substring(0, splitIndex).trim();
+  const action = remaining.substring(splitIndex + 1, remaining.length - 1).trim(); // Remove trailing )
+
+  const condAttributes = extractAttributes(cond);
+  const actionAttributes = extractAttributes(action);
+
+  // Check if property is nested (e.g., quote.insurance_type)
+  const propertyPath = property.split('.');
+
+  // Construct the JSONSchema 'if' part with nested property support
   const schema = {
     if: {
-      required: [property],
-      properties: {
-        [property]: {}
-      }
+      properties: {}
     },
     then: {}
   };
 
-  for (let i = 0; i < condAttributes.length; i++) {
-    const condRegex = /(@[a-zA-Z0-9_]+)\(([^)]+)\)/;
-    const condMatch = condAttributes[i].match(condRegex);
-    let [conditionExpr, conditionType, conditionValue] = condMatch;
+  // Build nested property structure for 'if' condition
+  let currentProp = schema.if.properties;
+  for (let i = 0; i < propertyPath.length; i++) {
+    const propName = propertyPath[i];
+    if (i === propertyPath.length - 1) {
+      // Last property in path - apply conditions here
+      currentProp[propName] = {};
 
-    // Remove surrounding quotes from condition value if present
-    if (conditionValue.startsWith('"') && conditionValue.endsWith('"')) {
-      conditionValue = conditionValue.slice(1, -1); // Remove quotes for strings
-    } else if (conditionValue === "true") {
-      conditionValue = true;  // Convert "true" to boolean true
-    } else if (conditionValue === "false") {
-      conditionValue = false;  // Convert "false" to boolean false
-    } else if (!isNaN(conditionValue)) {
-      conditionValue = Number(conditionValue);  // Convert numbers
+      for (let j = 0; j < condAttributes.length; j++) {
+        const condRegex = /(@[a-zA-Z0-9_]+)\(([^)]+)\)/;
+        const condMatch = condAttributes[j].match(condRegex);
+
+        if (!condMatch) continue;
+
+        let [, conditionType, conditionValue] = condMatch;
+
+        // Remove surrounding quotes from condition value if present
+        if (conditionValue.startsWith('"') && conditionValue.endsWith('"')) {
+          conditionValue = conditionValue.slice(1, -1);
+        } else if (conditionValue === "true") {
+          conditionValue = true;
+        } else if (conditionValue === "false") {
+          conditionValue = false;
+        } else if (!isNaN(conditionValue)) {
+          conditionValue = Number(conditionValue);
+        }
+
+        if (conditionType == "@enum") {
+          conditionValue = conditionValue.split(',');
+          conditionValue = conditionValue.map(m => m.replace('\"', '').trim());
+        }
+
+        currentProp[propName][conditionType.replace('@', '')] = conditionValue;
+      }
+    } else {
+      // Intermediate property - create nested structure
+      currentProp[propName] = { properties: {} };
+      currentProp = currentProp[propName].properties;
     }
-
-    if (conditionType == "@enum") {
-      conditionValue = conditionValue.split(',');
-      conditionValue = conditionValue.map(m => m.replace('\"', '').trim());
-    }      
-
-    // Handle the condition part dynamically
-    schema.if.properties[property][conditionType.replace('@', '')] = conditionValue;
   }
 
+  // Handle the 'then' part - support both @required and property-specific constraints
   for (let i = 0; i < actionAttributes.length; i++) {
     const actionRegex = /(@[a-zA-Z0-9_]+)\(([^)]+)\)/;
     const actionMatch = actionAttributes[i].match(actionRegex);
-    let [actionExpr, actionType, actionValue] = actionMatch;
 
-    // Handle the 'then' part dynamically
+    if (!actionMatch) continue;
+
+    let [, actionType, actionValue] = actionMatch;
+
+    // Check if action value contains a comma (property,value format)
+    const actionParts = actionValue.split(',');
+
     if (actionType === '@required') {
       if (!schema.then.hasOwnProperty('required')) {
         schema.then.required = [];
       }
       schema.then.required.push(actionValue);
+    } else if (actionParts.length === 2) {
+      // Format: @minItems(household_vehicles,1)
+      const targetProperty = actionParts[0].trim();
+      let constraintValue = actionParts[1].trim();
+
+      // Convert value to appropriate type
+      if (!isNaN(constraintValue)) {
+        constraintValue = Number(constraintValue);
+      } else if (constraintValue === 'true') {
+        constraintValue = true;
+      } else if (constraintValue === 'false') {
+        constraintValue = false;
+      }
+
+      // Create properties object in 'then' if it doesn't exist
+      if (!schema.then.properties) {
+        schema.then.properties = {};
+      }
+      if (!schema.then.properties[targetProperty]) {
+        schema.then.properties[targetProperty] = {};
+      }
+
+      schema.then.properties[targetProperty][actionType.replace('@', '')] = constraintValue;
     } else {
+      // Legacy format: constraint applies to root
       schema.then[actionType.replace('@', '')] = actionValue;
     }
   }
@@ -405,4 +472,13 @@ if (typeof window !== 'undefined') {
   window.litespec.handleAttributes = handleAttributes;
   window.litespec.parseDSL = parseDSL;
   window.litespec.validateDataUsingSchema = validateDataUsingSchema;
+} else if (typeof module !== 'undefined' && module.exports) {
+  // Export for Node.js environment (for testing)
+  module.exports = {
+    handlePermExpression,
+    handleIfExpression,
+    handleAttributes,
+    parseDSL,
+    validateDataUsingSchema
+  };
 }
