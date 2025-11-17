@@ -145,12 +145,12 @@ function handleIfExpression(expression) {
     const actionParts = actionValue.split(',');
 
     if (actionType === '@required') {
-      // Check for array item syntax: household_members[].driver
+      // Check for array item syntax: household_members[].driver or household_members[].driver.license_status
       if (actionValue.includes('[]')) {
         const match = actionValue.match(/^([^[]+)\[\]\.(.+)$/);
         if (match) {
           const arrayName = match[1]; // e.g., "household_members"
-          const itemProperty = match[2]; // e.g., "driver"
+          const itemPath = match[2]; // e.g., "driver" or "driver.license_status"
 
           // Create nested structure for array items in 'then'
           if (!schema.then.properties) {
@@ -162,10 +162,31 @@ function handleIfExpression(expression) {
           if (!schema.then.properties[arrayName].items) {
             schema.then.properties[arrayName].items = {};
           }
-          if (!schema.then.properties[arrayName].items.required) {
-            schema.then.properties[arrayName].items.required = [];
+
+          // Check if itemPath contains nested property (e.g., "driver.license_status")
+          if (itemPath.includes('.')) {
+            const pathParts = itemPath.split('.');
+            const objectName = pathParts[0]; // e.g., "driver"
+            const fieldName = pathParts.slice(1).join('.'); // e.g., "license_status"
+
+            // Create nested structure for the object within array items
+            if (!schema.then.properties[arrayName].items.properties) {
+              schema.then.properties[arrayName].items.properties = {};
+            }
+            if (!schema.then.properties[arrayName].items.properties[objectName]) {
+              schema.then.properties[arrayName].items.properties[objectName] = {};
+            }
+            if (!schema.then.properties[arrayName].items.properties[objectName].required) {
+              schema.then.properties[arrayName].items.properties[objectName].required = [];
+            }
+            schema.then.properties[arrayName].items.properties[objectName].required.push(fieldName);
+          } else {
+            // Simple property within array item (e.g., "driver")
+            if (!schema.then.properties[arrayName].items.required) {
+              schema.then.properties[arrayName].items.required = [];
+            }
+            schema.then.properties[arrayName].items.required.push(itemPath);
           }
-          schema.then.properties[arrayName].items.required.push(itemProperty);
         }
       } else if (actionValue.includes('.')) {
         // Handle nested property requirement: @required(liability_limits.bi)

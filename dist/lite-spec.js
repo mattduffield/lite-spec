@@ -6490,7 +6490,7 @@
               const match = actionValue.match(/^([^[]+)\[\]\.(.+)$/);
               if (match) {
                 const arrayName = match[1];
-                const itemProperty = match[2];
+                const itemPath = match[2];
                 if (!schema.then.properties) {
                   schema.then.properties = {};
                 }
@@ -6500,10 +6500,26 @@
                 if (!schema.then.properties[arrayName].items) {
                   schema.then.properties[arrayName].items = {};
                 }
-                if (!schema.then.properties[arrayName].items.required) {
-                  schema.then.properties[arrayName].items.required = [];
+                if (itemPath.includes(".")) {
+                  const pathParts = itemPath.split(".");
+                  const objectName = pathParts[0];
+                  const fieldName = pathParts.slice(1).join(".");
+                  if (!schema.then.properties[arrayName].items.properties) {
+                    schema.then.properties[arrayName].items.properties = {};
+                  }
+                  if (!schema.then.properties[arrayName].items.properties[objectName]) {
+                    schema.then.properties[arrayName].items.properties[objectName] = {};
+                  }
+                  if (!schema.then.properties[arrayName].items.properties[objectName].required) {
+                    schema.then.properties[arrayName].items.properties[objectName].required = [];
+                  }
+                  schema.then.properties[arrayName].items.properties[objectName].required.push(fieldName);
+                } else {
+                  if (!schema.then.properties[arrayName].items.required) {
+                    schema.then.properties[arrayName].items.required = [];
+                  }
+                  schema.then.properties[arrayName].items.required.push(itemPath);
                 }
-                schema.then.properties[arrayName].items.required.push(itemProperty);
               }
             } else if (actionValue.includes(".")) {
               const pathParts = actionValue.split(".");
