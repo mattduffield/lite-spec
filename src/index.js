@@ -204,14 +204,14 @@ function handleAttributes(attributes, field, type, fieldSchema, context, fieldPe
     } else if (attr.startsWith('@required')) {
       context.requiredFields.push(field);
     } else if (attr.startsWith('@ui')) {
-      const m = attr.match(/@ui\((.*?)\)/)[1];
-      const [uiType='', uiListType='', uiGroup='', uiOrder=0, uiLookup='', uiCollection='', uiCollectionDisplayMember='', uiCollectionValueMember=''] = m.split(',');
-      
-      // Add UI settings to the current object's UI container
-      if (!context.ui) {
-        context.ui = {};
+      // Only process UI attributes if context.ui exists (which means includeUI is true)
+      if (context.ui) {
+        const m = attr.match(/@ui\((.*?)\)/)[1];
+        const [uiType='', uiListType='', uiGroup='', uiOrder=0, uiLookup='', uiCollection='', uiCollectionDisplayMember='', uiCollectionValueMember=''] = m.split(',');
+
+        // Add UI settings to the current object's UI container
+        context.ui[field] = {uiType, uiListType, uiOrder: parseInt(uiOrder), uiGroup, uiLookup, uiCollection, uiCollectionDisplayMember, uiCollectionValueMember};
       }
-      context.ui[field] = {uiType, uiListType, uiOrder: parseInt(uiOrder), uiGroup, uiLookup, uiCollection, uiCollectionDisplayMember, uiCollectionValueMember};
     } else if (attr.startsWith('@minItems')) {
       fieldSchema.minItems = parseInt(attr.match(/\d+/)[0]);
     } else if (attr.startsWith('@maxItems')) {
@@ -311,9 +311,10 @@ function extractAttributes(typeString) {
 /**
  * Parses a DSL string and returns a JSON Schema object
  * @param {string} dsl - The DSL string to parse
+ * @param {boolean} includeUI - Whether to include UI properties in the schema (default: false)
  * @returns {object} The parsed JSON Schema
  */
-function parseDSL(dsl) {
+function parseDSL(dsl, includeUI = false) {
   const lines = dsl.split('\n').map(line => line.trim()).filter(line => line !== '');
   let schema = { $defs: {} }; // No root UI object - each def will have its own
   let rules = [];
@@ -332,18 +333,18 @@ function parseDSL(dsl) {
       breadcrumbRules = [];
       permissions = {};
       fieldPermissions = [];
-      
+
       const [defName, defType] = line.match(/def (\w+) (object|array)/).slice(1);
-      let defSchema = defType === 'object' 
-        ? { type: 'object', properties: {}, ui: {} } // Add UI at def level
-        : { type: 'array', items: { type: 'object', properties: {}, ui: {} } }; // Add UI at def's items level
-      
+      let defSchema = defType === 'object'
+        ? { type: 'object', properties: {}, ...(includeUI && { ui: {} }) } // Conditionally add UI at def level
+        : { type: 'array', items: { type: 'object', properties: {}, ...(includeUI && { ui: {} }) } }; // Conditionally add UI at def's items level
+
       schema.$defs[defName.toLowerCase()] = defSchema;
       currentObject = defType === 'object' ? defSchema : defSchema.items;
-      stack.push({ 
-        object: currentObject, 
+      stack.push({
+        object: currentObject,
         requiredFields: [],
-        ui: currentObject.ui // Reference to this def's UI
+        ui: includeUI ? currentObject.ui : null // Reference to this def's UI only if includeUI is true
       });
     } else if (line.startsWith('model ')) {
       // Reset collections for the model
@@ -352,17 +353,19 @@ function parseDSL(dsl) {
       breadcrumbRules = [];
       permissions = {};
       fieldPermissions = [];
-      
+
       const modelName = line.match(/model (\w+)/)[1];
       schema.title = modelName.toLowerCase();
       schema.type = 'object';
       schema.properties = {};
-      schema.ui = {}; // Add UI at model level
+      if (includeUI) {
+        schema.ui = {}; // Conditionally add UI at model level
+      }
       currentObject = schema;
-      stack.push({ 
-        object: currentObject, 
+      stack.push({
+        object: currentObject,
         requiredFields: [],
-        ui: schema.ui // Reference to model's UI
+        ui: includeUI ? schema.ui : null // Reference to model's UI only if includeUI is true
       });
     } else if (line.startsWith('}')) {
       const context = stack.pop();
