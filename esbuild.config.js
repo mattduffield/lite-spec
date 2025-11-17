@@ -6,7 +6,7 @@ esbuild.build({
   bundle: true,
   minify: true,
   outfile: 'dist/lite-spec.min.js',  // Output bundled file
-  format: 'esm',  // Use ESM for modern imports
+  format: 'iife',  // IIFE format for browser (no exports)
   // watch: process.argv.includes('--watch'),  // Optional: Watch mode
 }).catch(() => process.exit(1));
 
@@ -15,7 +15,7 @@ esbuild.build({
   bundle: true,
   minify: false,
   outfile: 'dist/lite-spec.js',  // Output bundled file
-  format: 'esm',  // Use ESM for modern imports
+  format: 'iife',  // IIFE format for browser (no exports)
   // watch: process.argv.includes('--watch'),  // Optional: Watch mode
 }).catch(() => process.exit(1));
 

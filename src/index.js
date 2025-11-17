@@ -472,13 +472,19 @@ if (typeof window !== 'undefined') {
   window.litespec.handleAttributes = handleAttributes;
   window.litespec.parseDSL = parseDSL;
   window.litespec.validateDataUsingSchema = validateDataUsingSchema;
-} else if (typeof module !== 'undefined' && module.exports) {
-  // Export for Node.js environment (for testing)
-  module.exports = {
-    handlePermExpression,
-    handleIfExpression,
-    handleAttributes,
-    parseDSL,
-    validateDataUsingSchema
-  };
+}
+
+// Export for Node.js environment (for testing) - using try/catch to avoid bundler issues
+try {
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+      handlePermExpression,
+      handleIfExpression,
+      handleAttributes,
+      parseDSL,
+      validateDataUsingSchema
+    };
+  }
+} catch (e) {
+  // Ignore - not in Node.js environment
 }
