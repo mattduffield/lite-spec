@@ -6486,7 +6486,26 @@
           let [, actionType, actionValue] = actionMatch;
           const actionParts = actionValue.split(",");
           if (actionType === "@required") {
-            if (actionValue.includes(".")) {
+            if (actionValue.includes("[]")) {
+              const match = actionValue.match(/^([^[]+)\[\]\.(.+)$/);
+              if (match) {
+                const arrayName = match[1];
+                const itemProperty = match[2];
+                if (!schema.then.properties) {
+                  schema.then.properties = {};
+                }
+                if (!schema.then.properties[arrayName]) {
+                  schema.then.properties[arrayName] = {};
+                }
+                if (!schema.then.properties[arrayName].items) {
+                  schema.then.properties[arrayName].items = {};
+                }
+                if (!schema.then.properties[arrayName].items.required) {
+                  schema.then.properties[arrayName].items.required = [];
+                }
+                schema.then.properties[arrayName].items.required.push(itemProperty);
+              }
+            } else if (actionValue.includes(".")) {
               const pathParts = actionValue.split(".");
               const objectName = pathParts[0];
               const fieldName = pathParts.slice(1).join(".");

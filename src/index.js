@@ -145,8 +145,29 @@ function handleIfExpression(expression) {
     const actionParts = actionValue.split(',');
 
     if (actionType === '@required') {
-      // Check if actionValue contains a dot (nested property path)
-      if (actionValue.includes('.')) {
+      // Check for array item syntax: household_members[].driver
+      if (actionValue.includes('[]')) {
+        const match = actionValue.match(/^([^[]+)\[\]\.(.+)$/);
+        if (match) {
+          const arrayName = match[1]; // e.g., "household_members"
+          const itemProperty = match[2]; // e.g., "driver"
+
+          // Create nested structure for array items in 'then'
+          if (!schema.then.properties) {
+            schema.then.properties = {};
+          }
+          if (!schema.then.properties[arrayName]) {
+            schema.then.properties[arrayName] = {};
+          }
+          if (!schema.then.properties[arrayName].items) {
+            schema.then.properties[arrayName].items = {};
+          }
+          if (!schema.then.properties[arrayName].items.required) {
+            schema.then.properties[arrayName].items.required = [];
+          }
+          schema.then.properties[arrayName].items.required.push(itemProperty);
+        }
+      } else if (actionValue.includes('.')) {
         // Handle nested property requirement: @required(liability_limits.bi)
         const pathParts = actionValue.split('.');
         const objectName = pathParts[0]; // e.g., "liability_limits"
