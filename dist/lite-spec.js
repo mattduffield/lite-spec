@@ -6486,10 +6486,26 @@
           let [, actionType, actionValue] = actionMatch;
           const actionParts = actionValue.split(",");
           if (actionType === "@required") {
-            if (!schema.then.hasOwnProperty("required")) {
-              schema.then.required = [];
+            if (actionValue.includes(".")) {
+              const pathParts = actionValue.split(".");
+              const objectName = pathParts[0];
+              const fieldName = pathParts.slice(1).join(".");
+              if (!schema.then.properties) {
+                schema.then.properties = {};
+              }
+              if (!schema.then.properties[objectName]) {
+                schema.then.properties[objectName] = {};
+              }
+              if (!schema.then.properties[objectName].required) {
+                schema.then.properties[objectName].required = [];
+              }
+              schema.then.properties[objectName].required.push(fieldName);
+            } else {
+              if (!schema.then.hasOwnProperty("required")) {
+                schema.then.required = [];
+              }
+              schema.then.required.push(actionValue);
             }
-            schema.then.required.push(actionValue);
           } else if (actionParts.length === 2) {
             const targetProperty = actionParts[0].trim();
             let constraintValue = actionParts[1].trim();

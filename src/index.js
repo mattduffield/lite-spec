@@ -145,10 +145,31 @@ function handleIfExpression(expression) {
     const actionParts = actionValue.split(',');
 
     if (actionType === '@required') {
-      if (!schema.then.hasOwnProperty('required')) {
-        schema.then.required = [];
+      // Check if actionValue contains a dot (nested property path)
+      if (actionValue.includes('.')) {
+        // Handle nested property requirement: @required(liability_limits.bi)
+        const pathParts = actionValue.split('.');
+        const objectName = pathParts[0]; // e.g., "liability_limits"
+        const fieldName = pathParts.slice(1).join('.'); // e.g., "bi" or "nested.field"
+
+        // Create nested structure in 'then'
+        if (!schema.then.properties) {
+          schema.then.properties = {};
+        }
+        if (!schema.then.properties[objectName]) {
+          schema.then.properties[objectName] = {};
+        }
+        if (!schema.then.properties[objectName].required) {
+          schema.then.properties[objectName].required = [];
+        }
+        schema.then.properties[objectName].required.push(fieldName);
+      } else {
+        // Simple property requirement: @required(tags)
+        if (!schema.then.hasOwnProperty('required')) {
+          schema.then.required = [];
+        }
+        schema.then.required.push(actionValue);
       }
-      schema.then.required.push(actionValue);
     } else if (actionParts.length === 2) {
       // Format: @minItems(household_vehicles,1)
       const targetProperty = actionParts[0].trim();
