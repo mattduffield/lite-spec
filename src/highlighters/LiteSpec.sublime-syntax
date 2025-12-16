@@ -11,7 +11,7 @@ contexts:
       scope: keyword.control.litespec
 
     # Match object and array definitions
-    - match: \b(object|array|string|number|integer|boolean|decimal)\b
+    - match: \b(object|array|string|number|integer|boolean|decimal|objectid)\b
       scope: punctuation.definition.litespec
 
     # Match annotations starting with '@'
