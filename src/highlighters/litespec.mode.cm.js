@@ -5,7 +5,7 @@ CodeMirror.defineSimpleMode("litespec", {
     { regex: /\b(def|model)\b/, token: "keyword" },
     
     // Match types like object, array, string, number, etc.
-    { regex: /\b(object|array|string|number|integer|boolean|decimal|asc|desc)\b/, token: "atom" },
+    { regex: /\b(object|array|string|number|integer|boolean|decimal|objectid|asc|desc)\b/, token: "atom" },
     
     // Match annotations starting with @
     { regex: /(@required|@can|@ref|@if|@minimum|@exclusiveMinimum|@maximum|@exclusiveMaximum|@minLength|@maxLength|@minItems|@maxItems|@uniqueItems|@uuid|@email|@format|@pattern|@enum|@const|@default|@ui|@breadcrumb|@sort)/, token: "attribute" },

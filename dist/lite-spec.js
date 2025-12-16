@@ -6770,7 +6770,16 @@
             const type = line.substring(line.indexOf(":") + 1).trim();
             const attributes = extractAttributes(type);
             const fieldType = type.split("@")[0].trim();
-            const fieldSchema = { type: fieldType };
+            let fieldSchema;
+            if (fieldType === "objectid") {
+              fieldSchema = {
+                type: "string",
+                pattern: "^$|^[a-fA-F0-9]{24}$"
+                // Allow empty string or valid 24-char hex
+              };
+            } else {
+              fieldSchema = { type: fieldType };
+            }
             let context = stack[stack.length - 1];
             handleAttributes(attributes, field, type, fieldSchema, context, fieldPermissions);
             currentObject.properties[field] = fieldSchema;

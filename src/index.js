@@ -500,7 +500,18 @@ function parseDSL(dsl, includeUI = false) {
       // Extract attributes using balanced parentheses matching
       const attributes = extractAttributes(type);
       const fieldType = type.split('@')[0].trim();
-      const fieldSchema = { type: fieldType };
+
+      // Handle objectid as a special type - convert to string with pattern
+      let fieldSchema;
+      if (fieldType === 'objectid') {
+        fieldSchema = {
+          type: 'string',
+          pattern: '^$|^[a-fA-F0-9]{24}$'  // Allow empty string or valid 24-char hex
+        };
+      } else {
+        fieldSchema = { type: fieldType };
+      }
+
       let context = stack[stack.length - 1];
       handleAttributes(attributes, field, type, fieldSchema, context, fieldPermissions);
       currentObject.properties[field] = fieldSchema;
