@@ -1,4 +1,4 @@
-const Ajv = require("ajv")
+const Ajv = require("ajv");
 
 /**
  * Parses an breadcrumb expression and returns a sort rule
@@ -7,8 +7,8 @@ const Ajv = require("ajv")
  */
 function handleBreadcrumbExpression(expression) {
   const m = expression.match(/@breadcrumb\((.*?)\)/)[1];
-  const [name='', suffix=''] = m.split(',');
-  return {name, suffix};
+  const [name = "", suffix = ""] = m.split(",");
+  return { name, suffix };
 }
 
 /**
@@ -18,8 +18,8 @@ function handleBreadcrumbExpression(expression) {
  */
 function handleSortExpression(expression) {
   const m = expression.match(/@sort\((.*?)\)/)[1];
-  const [name='', dir='asc'] = m.split(',');
-  return {name, dir};
+  const [name = "", dir = "asc"] = m.split(",");
+  return { name, dir };
 }
 
 /**
@@ -62,9 +62,9 @@ function handleIfExpression(expression) {
   let splitIndex = -1;
 
   for (let i = 0; i < remaining.length; i++) {
-    if (remaining[i] === '(') depth++;
-    else if (remaining[i] === ')') depth--;
-    else if (remaining[i] === ',' && depth === 0) {
+    if (remaining[i] === "(") depth++;
+    else if (remaining[i] === ")") depth--;
+    else if (remaining[i] === "," && depth === 0) {
       splitIndex = i;
       break;
     }
@@ -75,20 +75,22 @@ function handleIfExpression(expression) {
   }
 
   const cond = remaining.substring(0, splitIndex).trim();
-  const action = remaining.substring(splitIndex + 1, remaining.length - 1).trim(); // Remove trailing )
+  const action = remaining
+    .substring(splitIndex + 1, remaining.length - 1)
+    .trim(); // Remove trailing )
 
   const condAttributes = extractAttributes(cond);
   const actionAttributes = extractAttributes(action);
 
   // Check if property is nested (e.g., quote.insurance_type)
-  const propertyPath = property.split('.');
+  const propertyPath = property.split(".");
 
   // Construct the JSONSchema 'if' part with nested property support
   const schema = {
     if: {
-      properties: {}
+      properties: {},
     },
-    then: {}
+    then: {},
   };
 
   // Build nested property structure for 'if' condition
@@ -119,11 +121,13 @@ function handleIfExpression(expression) {
         }
 
         if (conditionType == "@enum") {
-          conditionValue = conditionValue.split(',');
-          conditionValue = conditionValue.map(m => m.replace('\"', '').trim());
+          conditionValue = conditionValue.split(",");
+          conditionValue = conditionValue.map((m) =>
+            m.replace('\"', "").trim(),
+          );
         }
 
-        currentProp[propName][conditionType.replace('@', '')] = conditionValue;
+        currentProp[propName][conditionType.replace("@", "")] = conditionValue;
       }
     } else {
       // Intermediate property - create nested structure
@@ -142,11 +146,11 @@ function handleIfExpression(expression) {
     let [, actionType, actionValue] = actionMatch;
 
     // Check if action value contains a comma (property,value format)
-    const actionParts = actionValue.split(',');
+    const actionParts = actionValue.split(",");
 
-    if (actionType === '@required') {
+    if (actionType === "@required") {
       // Check for array item syntax: household_members[].driver or household_members[].driver.license_status
-      if (actionValue.includes('[]')) {
+      if (actionValue.includes("[]")) {
         const match = actionValue.match(/^([^[]+)\[\]\.(.+)$/);
         if (match) {
           const arrayName = match[1]; // e.g., "household_members"
@@ -164,22 +168,32 @@ function handleIfExpression(expression) {
           }
 
           // Check if itemPath contains nested property (e.g., "driver.license_status")
-          if (itemPath.includes('.')) {
-            const pathParts = itemPath.split('.');
+          if (itemPath.includes(".")) {
+            const pathParts = itemPath.split(".");
             const objectName = pathParts[0]; // e.g., "driver"
-            const fieldName = pathParts.slice(1).join('.'); // e.g., "license_status"
+            const fieldName = pathParts.slice(1).join("."); // e.g., "license_status"
 
             // Create nested structure for the object within array items
             if (!schema.then.properties[arrayName].items.properties) {
               schema.then.properties[arrayName].items.properties = {};
             }
-            if (!schema.then.properties[arrayName].items.properties[objectName]) {
-              schema.then.properties[arrayName].items.properties[objectName] = {};
+            if (
+              !schema.then.properties[arrayName].items.properties[objectName]
+            ) {
+              schema.then.properties[arrayName].items.properties[objectName] =
+                {};
             }
-            if (!schema.then.properties[arrayName].items.properties[objectName].required) {
-              schema.then.properties[arrayName].items.properties[objectName].required = [];
+            if (
+              !schema.then.properties[arrayName].items.properties[objectName]
+                .required
+            ) {
+              schema.then.properties[arrayName].items.properties[
+                objectName
+              ].required = [];
             }
-            schema.then.properties[arrayName].items.properties[objectName].required.push(fieldName);
+            schema.then.properties[arrayName].items.properties[
+              objectName
+            ].required.push(fieldName);
           } else {
             // Simple property within array item (e.g., "driver")
             if (!schema.then.properties[arrayName].items.required) {
@@ -188,11 +202,11 @@ function handleIfExpression(expression) {
             schema.then.properties[arrayName].items.required.push(itemPath);
           }
         }
-      } else if (actionValue.includes('.')) {
+      } else if (actionValue.includes(".")) {
         // Handle nested property requirement: @required(liability_limits.bi)
-        const pathParts = actionValue.split('.');
+        const pathParts = actionValue.split(".");
         const objectName = pathParts[0]; // e.g., "liability_limits"
-        const fieldName = pathParts.slice(1).join('.'); // e.g., "bi" or "nested.field"
+        const fieldName = pathParts.slice(1).join("."); // e.g., "bi" or "nested.field"
 
         // Create nested structure in 'then'
         if (!schema.then.properties) {
@@ -207,7 +221,7 @@ function handleIfExpression(expression) {
         schema.then.properties[objectName].required.push(fieldName);
       } else {
         // Simple property requirement: @required(tags)
-        if (!schema.then.hasOwnProperty('required')) {
+        if (!schema.then.hasOwnProperty("required")) {
           schema.then.required = [];
         }
         schema.then.required.push(actionValue);
@@ -220,9 +234,9 @@ function handleIfExpression(expression) {
       // Convert value to appropriate type
       if (!isNaN(constraintValue)) {
         constraintValue = Number(constraintValue);
-      } else if (constraintValue === 'true') {
+      } else if (constraintValue === "true") {
         constraintValue = true;
-      } else if (constraintValue === 'false') {
+      } else if (constraintValue === "false") {
         constraintValue = false;
       }
 
@@ -234,10 +248,11 @@ function handleIfExpression(expression) {
         schema.then.properties[targetProperty] = {};
       }
 
-      schema.then.properties[targetProperty][actionType.replace('@', '')] = constraintValue;
+      schema.then.properties[targetProperty][actionType.replace("@", "")] =
+        constraintValue;
     } else {
       // Legacy format: constraint applies to root
-      schema.then[actionType.replace('@', '')] = actionValue;
+      schema.then[actionType.replace("@", "")] = actionValue;
     }
   }
 
@@ -253,78 +268,115 @@ function handleIfExpression(expression) {
  * @param {object} context - Context object with requiredFields and ui properties
  * @param {Array} fieldPermissions - Array to collect field permissions
  */
-function handleAttributes(attributes, field, type, fieldSchema, context, fieldPermissions) {
-  attributes.forEach(attr => {
-    if (attr.startsWith('@can')) {
+function handleAttributes(
+  attributes,
+  field,
+  type,
+  fieldSchema,
+  context,
+  fieldPermissions,
+) {
+  attributes.forEach((attr) => {
+    if (attr.startsWith("@can")) {
       const perm = handlePermExpression(attr);
       fieldPermissions.push({ [field]: perm });
-    } else if (attr.startsWith('@enum')) {
+    } else if (attr.startsWith("@enum")) {
       const enums = type.match(/@enum\((.*?)\)/)[1];
-      fieldSchema.enum = enums.split(',').map(m => m.trim());
-    } else if (attr.startsWith('@ref')) {
+      fieldSchema.enum = enums.split(",").map((m) => m.trim());
+    } else if (attr.startsWith("@ref")) {
       const refName = type.match(/@ref\((.*?)\)/)[1];
-      fieldSchema['$ref'] = `#/$defs/${refName.toLowerCase()}`;
-    } else if (attr.startsWith('@required')) {
+      fieldSchema["$ref"] = `#/$defs/${refName.toLowerCase()}`;
+    } else if (attr.startsWith("@required")) {
       context.requiredFields.push(field);
-    } else if (attr.startsWith('@ui')) {
+    } else if (attr.startsWith("@ui")) {
       // Only process UI attributes if context.ui exists (which means includeUI is true)
       if (context.ui) {
         const m = attr.match(/@ui\((.*?)\)/)[1];
-        const [uiType='', uiListType='', uiGroup='', uiOrder=0, uiLookup='', uiCollection='', uiCollectionDisplayMember='', uiCollectionValueMember=''] = m.split(',');
+        const [
+          uiType = "",
+          uiListType = "",
+          uiGroup = "",
+          uiOrder = 0,
+          uiLookup = "",
+          uiCollection = "",
+          uiCollectionDisplayMember = "",
+          uiCollectionValueMember = "",
+        ] = m.split(",");
 
         // Add UI settings to the current object's UI container
-        context.ui[field] = {uiType, uiListType, uiOrder: parseInt(uiOrder), uiGroup, uiLookup, uiCollection, uiCollectionDisplayMember, uiCollectionValueMember};
+        context.ui[field] = {
+          uiType,
+          uiListType,
+          uiOrder: parseInt(uiOrder),
+          uiGroup,
+          uiLookup,
+          uiCollection,
+          uiCollectionDisplayMember,
+          uiCollectionValueMember,
+        };
       }
-    } else if (attr.startsWith('@minItems')) {
+    } else if (attr.startsWith("@minItems")) {
       fieldSchema.minItems = parseInt(attr.match(/\d+/)[0]);
-    } else if (attr.startsWith('@maxItems')) {
+    } else if (attr.startsWith("@maxItems")) {
       fieldSchema.maxItems = parseInt(attr.match(/\d+/)[0]);
-    } else if (attr.startsWith('@uniqueItems')) {
+    } else if (attr.startsWith("@uniqueItems")) {
       fieldSchema.uniqueItems = true;
-    } else if (attr.startsWith('@minLength')) {
+    } else if (attr.startsWith("@minLength")) {
       fieldSchema.minLength = parseInt(attr.match(/\d+/)[0]);
-    } else if (attr.startsWith('@maxLength')) {
+    } else if (attr.startsWith("@maxLength")) {
       fieldSchema.maxLength = parseInt(attr.match(/\d+/)[0]);
-    } else if (attr.startsWith('@exclusiveMinimum')) {
+    } else if (attr.startsWith("@exclusiveMinimum")) {
       fieldSchema.exclusiveMinimum = parseInt(attr.match(/\d+/)[0]);
-    } else if (attr.startsWith('@exclusiveMaximum')) {
+    } else if (attr.startsWith("@exclusiveMaximum")) {
       fieldSchema.exclusiveMaximum = parseInt(attr.match(/\d+/)[0]);
-    } else if (attr.startsWith('@minimum')) {
+    } else if (attr.startsWith("@minimum")) {
       fieldSchema.minimum = parseInt(attr.match(/\d+/)[0]);
-    } else if (attr.startsWith('@maximum')) {
+    } else if (attr.startsWith("@maximum")) {
       fieldSchema.maximum = parseInt(attr.match(/\d+/)[0]);
-    } else if (attr.startsWith('@multipleOf')) {
+    } else if (attr.startsWith("@multipleOf")) {
       fieldSchema.multipleOf = parseInt(attr.match(/\d+/)[0]);
-    } else if (attr.startsWith('@format')) {
+    } else if (attr.startsWith("@format")) {
       const format = attr.match(/\((.*?)\)/)[1];
-      if (format === 'date-time') {
+      if (format === "date-time") {
         fieldSchema.anyOf = [
-          { type: 'string', format: 'date-time' },
-          { type: 'string', enum: [""] }
+          { type: "string", format: "date-time" },
+          { type: "string", enum: [""] },
         ];
         delete fieldSchema.type;
       } else {
         fieldSchema.format = format;
       }
-    } else if (attr.startsWith('@pattern')) {
+    } else if (attr.startsWith("@pattern")) {
       // Extract pattern handling nested parentheses
       const match = attr.match(/@pattern\((.*)\)$/);
       if (match) {
         fieldSchema.pattern = match[1];
       }
-    } else if (attr.startsWith('@default')) {
+    } else if (attr.startsWith("@default")) {
       const defaultValue = attr.match(/\((.*?)\)/)[1];
       if (defaultValue === '""') {
         fieldSchema.default = "";
-      } else if (defaultValue === 'true' || defaultValue === 'false') {
-        fieldSchema.default = defaultValue === 'true';
-      } else if (!isNaN(defaultValue) && (fieldSchema.type === 'number' || fieldSchema.type === 'integer')) {
+      } else if (defaultValue === "true" || defaultValue === "false") {
+        fieldSchema.default = defaultValue === "true";
+      } else if (
+        !isNaN(defaultValue) &&
+        (fieldSchema.type === "number" || fieldSchema.type === "integer")
+      ) {
         // Only convert to number if field type is numeric
         fieldSchema.default = parseFloat(defaultValue);
       } else {
         // For string types and others, keep as string (remove quotes if present)
-        fieldSchema.default = defaultValue.replace(/^["']|["']$/g, '');
+        fieldSchema.default = defaultValue.replace(/^["']|["']$/g, "");
       }
+    } else if (attr.startsWith("@startTrim")) {
+      // Start trim - removes only leading whitespace
+      fieldSchema["x-startTrim"] = true;
+    } else if (attr.startsWith("@endTrim")) {
+      // End trim - removes only trailing whitespace
+      fieldSchema["x-endTrim"] = true;
+    } else if (attr.startsWith("@trim")) {
+      // Full trim - removes leading and trailing whitespace
+      fieldSchema["x-trim"] = true;
     }
   });
 }
@@ -340,7 +392,7 @@ function extractAttributes(typeString) {
 
   while (i < typeString.length) {
     // Find next @ symbol
-    if (typeString[i] === '@') {
+    if (typeString[i] === "@") {
       let start = i;
       i++; // Move past @
 
@@ -350,14 +402,14 @@ function extractAttributes(typeString) {
       }
 
       // Check if there's a parenthesis
-      if (i < typeString.length && typeString[i] === '(') {
+      if (i < typeString.length && typeString[i] === "(") {
         i++; // Move past opening (
         let depth = 1;
 
         // Find matching closing parenthesis
         while (i < typeString.length && depth > 0) {
-          if (typeString[i] === '(') depth++;
-          else if (typeString[i] === ')') depth--;
+          if (typeString[i] === "(") depth++;
+          else if (typeString[i] === ")") depth--;
           i++;
         }
       }
@@ -378,7 +430,10 @@ function extractAttributes(typeString) {
  * @returns {object} The parsed JSON Schema
  */
 function parseDSL(dsl, includeUI = false) {
-  const lines = dsl.split('\n').map(line => line.trim()).filter(line => line !== '');
+  const lines = dsl
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "");
   let schema = { $defs: {} }; // No root UI object - each def will have its own
   let rules = [];
   let sortRules = [];
@@ -388,8 +443,8 @@ function parseDSL(dsl, includeUI = false) {
   let stack = [];
   let currentObject = schema;
 
-  lines.forEach(line => {
-    if (line.startsWith('def ')) {
+  lines.forEach((line) => {
+    if (line.startsWith("def ")) {
       // Reset collections for the new definition
       rules = [];
       sortRules = [];
@@ -397,19 +452,29 @@ function parseDSL(dsl, includeUI = false) {
       permissions = {};
       fieldPermissions = [];
 
-      const [defName, defType] = line.match(/def (\w+) (object|array)/).slice(1);
-      let defSchema = defType === 'object'
-        ? { type: 'object', properties: {}, ...(includeUI && { ui: {} }) } // Conditionally add UI at def level
-        : { type: 'array', items: { type: 'object', properties: {}, ...(includeUI && { ui: {} }) } }; // Conditionally add UI at def's items level
+      const [defName, defType] = line
+        .match(/def (\w+) (object|array)/)
+        .slice(1);
+      let defSchema =
+        defType === "object"
+          ? { type: "object", properties: {}, ...(includeUI && { ui: {} }) } // Conditionally add UI at def level
+          : {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {},
+                ...(includeUI && { ui: {} }),
+              },
+            }; // Conditionally add UI at def's items level
 
       schema.$defs[defName.toLowerCase()] = defSchema;
-      currentObject = defType === 'object' ? defSchema : defSchema.items;
+      currentObject = defType === "object" ? defSchema : defSchema.items;
       stack.push({
         object: currentObject,
         requiredFields: [],
-        ui: includeUI ? currentObject.ui : null // Reference to this def's UI only if includeUI is true
+        ui: includeUI ? currentObject.ui : null, // Reference to this def's UI only if includeUI is true
       });
-    } else if (line.startsWith('model ')) {
+    } else if (line.startsWith("model ")) {
       // Reset collections for the model
       rules = [];
       sortRules = [];
@@ -419,7 +484,7 @@ function parseDSL(dsl, includeUI = false) {
 
       const modelName = line.match(/model (\w+)/)[1];
       schema.title = modelName.toLowerCase();
-      schema.type = 'object';
+      schema.type = "object";
       schema.properties = {};
       if (includeUI) {
         schema.ui = {}; // Conditionally add UI at model level
@@ -428,9 +493,9 @@ function parseDSL(dsl, includeUI = false) {
       stack.push({
         object: currentObject,
         requiredFields: [],
-        ui: includeUI ? schema.ui : null // Reference to model's UI only if includeUI is true
+        ui: includeUI ? schema.ui : null, // Reference to model's UI only if includeUI is true
       });
-    } else if (line.startsWith('}')) {
+    } else if (line.startsWith("}")) {
       const context = stack.pop();
       currentObject = context.object;
       if (context.requiredFields.length > 0) {
@@ -449,32 +514,35 @@ function parseDSL(dsl, includeUI = false) {
         currentObject.permissions = { collection: permissions };
       }
       if (fieldPermissions.length > 0) {
-        currentObject.permissions = { ...currentObject.permissions, field: fieldPermissions };
+        currentObject.permissions = {
+          ...currentObject.permissions,
+          field: fieldPermissions,
+        };
       }
-      
+
       // Reset for next section
       rules = [];
       sortRules = [];
       breadcrumbRules = [];
       permissions = {};
       fieldPermissions = [];
-      
+
       if (stack.length > 0) {
         currentObject = stack[stack.length - 1].object;
       }
-    } else if (line.startsWith('@if')) {
+    } else if (line.startsWith("@if")) {
       const rule = handleIfExpression(line);
       rules.push(rule);
-    } else if (line.startsWith('@breadcrumb')) {
+    } else if (line.startsWith("@breadcrumb")) {
       const rule = handleBreadcrumbExpression(line);
       breadcrumbRules.push(rule);
-    } else if (line.startsWith('@sort')) {
+    } else if (line.startsWith("@sort")) {
       const rule = handleSortExpression(line);
       sortRules.push(rule);
-    } else if (line.startsWith('@can')) {
+    } else if (line.startsWith("@can")) {
       permissions = handlePermExpression(line);
-    } else if (line.includes('array(')) {
-      const [field, type] = line.split(':').map(v => v.trim());
+    } else if (line.includes("array(")) {
+      const [field, type] = line.split(":").map((v) => v.trim());
       const attributes = extractAttributes(type);
       const arrayTypeMatch = line.match(/array\((\w+)\)/);
       const arrayRefTypeMatch = line.match(/array\(@ref\((\w+)\)/);
@@ -483,37 +551,60 @@ function parseDSL(dsl, includeUI = false) {
 
       if (arrayTypeMatch) {
         const itemType = arrayTypeMatch[1];
-        const nestedArray = { type: 'array', items: { type: itemType } };
-        handleAttributes(attributes, field, type, nestedArray, context, fieldPermissions);
-        currentObject['properties'][field] = nestedArray;
+        const nestedArray = { type: "array", items: { type: itemType } };
+        handleAttributes(
+          attributes,
+          field,
+          type,
+          nestedArray,
+          context,
+          fieldPermissions,
+        );
+        currentObject["properties"][field] = nestedArray;
       } else if (arrayRefTypeMatch) {
         const refName = type.match(/@ref\((.*?)\)/)[1];
         const refValue = `#/$defs/${refName.toLowerCase()}`;
-        const nestedArray = { type: 'array', items: { $ref: refValue } };
-        let filteredAttributes = attributes.filter(attribute => !attribute.includes(refName));
-        handleAttributes(filteredAttributes, field, type, nestedArray, context, fieldPermissions);
-        currentObject['properties'][field] = nestedArray;
+        const nestedArray = { type: "array", items: { $ref: refValue } };
+        let filteredAttributes = attributes.filter(
+          (attribute) => !attribute.includes(refName),
+        );
+        handleAttributes(
+          filteredAttributes,
+          field,
+          type,
+          nestedArray,
+          context,
+          fieldPermissions,
+        );
+        currentObject["properties"][field] = nestedArray;
       }
     } else {
-      const field = line.substring(0, line.indexOf(':')).trim();
-      const type = line.substring(line.indexOf(':') + 1).trim();
+      const field = line.substring(0, line.indexOf(":")).trim();
+      const type = line.substring(line.indexOf(":") + 1).trim();
       // Extract attributes using balanced parentheses matching
       const attributes = extractAttributes(type);
-      const fieldType = type.split('@')[0].trim();
+      const fieldType = type.split("@")[0].trim();
 
       // Handle objectid as a special type - convert to string with pattern
       let fieldSchema;
-      if (fieldType === 'objectid') {
+      if (fieldType === "objectid") {
         fieldSchema = {
-          type: 'string',
-          pattern: '^$|^[a-fA-F0-9]{24}$'  // Allow empty string or valid 24-char hex
+          type: "string",
+          pattern: "^$|^[a-fA-F0-9]{24}$", // Allow empty string or valid 24-char hex
         };
       } else {
         fieldSchema = { type: fieldType };
       }
 
       let context = stack[stack.length - 1];
-      handleAttributes(attributes, field, type, fieldSchema, context, fieldPermissions);
+      handleAttributes(
+        attributes,
+        field,
+        type,
+        fieldSchema,
+        context,
+        fieldPermissions,
+      );
       currentObject.properties[field] = fieldSchema;
     }
   });
@@ -540,7 +631,7 @@ function validateDataUsingSchema(schema, data) {
 }
 
 // Export the functions to the global scope if in a browser environment
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   if (!window.litespec) {
     window.litespec = {};
   }
@@ -553,13 +644,13 @@ if (typeof window !== 'undefined') {
 
 // Export for Node.js environment (for testing) - using try/catch to avoid bundler issues
 try {
-  if (typeof module !== 'undefined' && module.exports) {
+  if (typeof module !== "undefined" && module.exports) {
     module.exports = {
       handlePermExpression,
       handleIfExpression,
       handleAttributes,
       parseDSL,
-      validateDataUsingSchema
+      validateDataUsingSchema,
     };
   }
 } catch (e) {
