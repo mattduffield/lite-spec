@@ -15,7 +15,7 @@ contexts:
       scope: punctuation.definition.litespec
 
     # Match annotations starting with '@'
-    - match: '(@required|@can|@ref|@if|@minimum|@exclusiveMinimum|@maximum|@exclusiveMaximum|@minLength|@maxLength|@minItems|@maxItems|@uniqueItems|@uuid|@email|@format|@enum|@const|@default|@ui)'
+    - match: '(@required|@can|@ref|@if|@minimum|@exclusiveMinimum|@maximum|@exclusiveMaximum|@minLength|@maxLength|@minItems|@maxItems|@uniqueItems|@uuid|@email|@format|@enum|@const|@default|@ui|@trim|@startTrim|@endTrim)'
       scope: keyword.other.annotation.litespec
 
     # Match field names

@@ -6470,7 +6470,9 @@
               }
               if (conditionType == "@enum") {
                 conditionValue = conditionValue.split(",");
-                conditionValue = conditionValue.map((m) => m.replace('"', "").trim());
+                conditionValue = conditionValue.map(
+                  (m) => m.replace('"', "").trim()
+                );
               }
               currentProp[propName][conditionType.replace("@", "")] = conditionValue;
             }
@@ -6580,8 +6582,26 @@
           } else if (attr.startsWith("@ui")) {
             if (context.ui) {
               const m = attr.match(/@ui\((.*?)\)/)[1];
-              const [uiType = "", uiListType = "", uiGroup = "", uiOrder = 0, uiLookup = "", uiCollection = "", uiCollectionDisplayMember = "", uiCollectionValueMember = ""] = m.split(",");
-              context.ui[field] = { uiType, uiListType, uiOrder: parseInt(uiOrder), uiGroup, uiLookup, uiCollection, uiCollectionDisplayMember, uiCollectionValueMember };
+              const [
+                uiType = "",
+                uiListType = "",
+                uiGroup = "",
+                uiOrder = 0,
+                uiLookup = "",
+                uiCollection = "",
+                uiCollectionDisplayMember = "",
+                uiCollectionValueMember = ""
+              ] = m.split(",");
+              context.ui[field] = {
+                uiType,
+                uiListType,
+                uiOrder: parseInt(uiOrder),
+                uiGroup,
+                uiLookup,
+                uiCollection,
+                uiCollectionDisplayMember,
+                uiCollectionValueMember
+              };
             }
           } else if (attr.startsWith("@minItems")) {
             fieldSchema.minItems = parseInt(attr.match(/\d+/)[0]);
@@ -6630,6 +6650,12 @@
             } else {
               fieldSchema.default = defaultValue.replace(/^["']|["']$/g, "");
             }
+          } else if (attr.startsWith("@startTrim")) {
+            fieldSchema["x-startTrim"] = true;
+          } else if (attr.startsWith("@endTrim")) {
+            fieldSchema["x-endTrim"] = true;
+          } else if (attr.startsWith("@trim")) {
+            fieldSchema["x-trim"] = true;
           }
         });
       }
@@ -6677,7 +6703,14 @@
             permissions = {};
             fieldPermissions = [];
             const [defName, defType] = line.match(/def (\w+) (object|array)/).slice(1);
-            let defSchema = defType === "object" ? { type: "object", properties: {}, ...includeUI && { ui: {} } } : { type: "array", items: { type: "object", properties: {}, ...includeUI && { ui: {} } } };
+            let defSchema = defType === "object" ? { type: "object", properties: {}, ...includeUI && { ui: {} } } : {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {},
+                ...includeUI && { ui: {} }
+              }
+            };
             schema.$defs[defName.toLowerCase()] = defSchema;
             currentObject = defType === "object" ? defSchema : defSchema.items;
             stack.push({
@@ -6725,7 +6758,10 @@
               currentObject.permissions = { collection: permissions };
             }
             if (fieldPermissions.length > 0) {
-              currentObject.permissions = { ...currentObject.permissions, field: fieldPermissions };
+              currentObject.permissions = {
+                ...currentObject.permissions,
+                field: fieldPermissions
+              };
             }
             rules = [];
             sortRules = [];
@@ -6755,14 +6791,30 @@
             if (arrayTypeMatch) {
               const itemType = arrayTypeMatch[1];
               const nestedArray = { type: "array", items: { type: itemType } };
-              handleAttributes(attributes, field, type, nestedArray, context, fieldPermissions);
+              handleAttributes(
+                attributes,
+                field,
+                type,
+                nestedArray,
+                context,
+                fieldPermissions
+              );
               currentObject["properties"][field] = nestedArray;
             } else if (arrayRefTypeMatch) {
               const refName = type.match(/@ref\((.*?)\)/)[1];
               const refValue = `#/$defs/${refName.toLowerCase()}`;
               const nestedArray = { type: "array", items: { $ref: refValue } };
-              let filteredAttributes = attributes.filter((attribute) => !attribute.includes(refName));
-              handleAttributes(filteredAttributes, field, type, nestedArray, context, fieldPermissions);
+              let filteredAttributes = attributes.filter(
+                (attribute) => !attribute.includes(refName)
+              );
+              handleAttributes(
+                filteredAttributes,
+                field,
+                type,
+                nestedArray,
+                context,
+                fieldPermissions
+              );
               currentObject["properties"][field] = nestedArray;
             }
           } else {
@@ -6781,7 +6833,14 @@
               fieldSchema = { type: fieldType };
             }
             let context = stack[stack.length - 1];
-            handleAttributes(attributes, field, type, fieldSchema, context, fieldPermissions);
+            handleAttributes(
+              attributes,
+              field,
+              type,
+              fieldSchema,
+              context,
+              fieldPermissions
+            );
             currentObject.properties[field] = fieldSchema;
           }
         });
