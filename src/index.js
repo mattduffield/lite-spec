@@ -265,7 +265,7 @@ function handleIfExpression(expression) {
  * @param {string} field - Field name
  * @param {string} type - Field type string
  * @param {object} fieldSchema - Schema object for the field
- * @param {object} context - Context object with requiredFields and ui properties
+ * @param {object} context - Context object with requiredFields
  * @param {Array} fieldPermissions - Array to collect field permissions
  */
 function handleAttributes(
@@ -288,33 +288,6 @@ function handleAttributes(
       fieldSchema["$ref"] = `#/$defs/${refName.toLowerCase()}`;
     } else if (attr.startsWith("@required")) {
       context.requiredFields.push(field);
-    } else if (attr.startsWith("@ui")) {
-      // Only process UI attributes if context.ui exists (which means includeUI is true)
-      if (context.ui) {
-        const m = attr.match(/@ui\((.*?)\)/)[1];
-        const [
-          uiType = "",
-          uiListType = "",
-          uiGroup = "",
-          uiOrder = 0,
-          uiLookup = "",
-          uiCollection = "",
-          uiCollectionDisplayMember = "",
-          uiCollectionValueMember = "",
-        ] = m.split(",");
-
-        // Add UI settings to the current object's UI container
-        context.ui[field] = {
-          uiType,
-          uiListType,
-          uiOrder: parseInt(uiOrder),
-          uiGroup,
-          uiLookup,
-          uiCollection,
-          uiCollectionDisplayMember,
-          uiCollectionValueMember,
-        };
-      }
     } else if (attr.startsWith("@minItems")) {
       fieldSchema.minItems = parseInt(attr.match(/\d+/)[0]);
     } else if (attr.startsWith("@maxItems")) {
@@ -426,15 +399,14 @@ function extractAttributes(typeString) {
 /**
  * Parses a DSL string and returns a JSON Schema object
  * @param {string} dsl - The DSL string to parse
- * @param {boolean} includeUI - Whether to include UI properties in the schema (default: false)
  * @returns {object} The parsed JSON Schema
  */
-function parseDSL(dsl, includeUI = false) {
+function parseDSL(dsl) {
   const lines = dsl
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line !== "");
-  let schema = { $defs: {} }; // No root UI object - each def will have its own
+  let schema = { $defs: {} };
   let rules = [];
   let sortRules = [];
   let breadcrumbRules = [];
@@ -457,22 +429,20 @@ function parseDSL(dsl, includeUI = false) {
         .slice(1);
       let defSchema =
         defType === "object"
-          ? { type: "object", properties: {}, ...(includeUI && { ui: {} }) } // Conditionally add UI at def level
+          ? { type: "object", properties: {} }
           : {
               type: "array",
               items: {
                 type: "object",
                 properties: {},
-                ...(includeUI && { ui: {} }),
               },
-            }; // Conditionally add UI at def's items level
+            };
 
       schema.$defs[defName.toLowerCase()] = defSchema;
       currentObject = defType === "object" ? defSchema : defSchema.items;
       stack.push({
         object: currentObject,
         requiredFields: [],
-        ui: includeUI ? currentObject.ui : null, // Reference to this def's UI only if includeUI is true
       });
     } else if (line.startsWith("model ")) {
       // Reset collections for the model
@@ -486,14 +456,10 @@ function parseDSL(dsl, includeUI = false) {
       schema.title = modelName.toLowerCase();
       schema.type = "object";
       schema.properties = {};
-      if (includeUI) {
-        schema.ui = {}; // Conditionally add UI at model level
-      }
       currentObject = schema;
       stack.push({
         object: currentObject,
         requiredFields: [],
-        ui: includeUI ? schema.ui : null, // Reference to model's UI only if includeUI is true
       });
     } else if (line.startsWith("}")) {
       const context = stack.pop();

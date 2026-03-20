@@ -39,10 +39,10 @@ python3 -m http.server 3016
 ## Another example
 ```
 def Address object {
-  street: string @required @ui(wc-input,1)
-  city: string @required @ui(wc-input,2)
-  state: string @required @ui(wc-select,3,,us_states)
-  postal_code: string @required @ui(wc-input,4)
+  street: string @required
+  city: string @required
+  state: string @required
+  postal_code: string @required
   @can(view: "@self", add: "admin editor", edit: "admin @self editor", delete: "@self admin")
 }
 def Member array {
@@ -53,15 +53,15 @@ def Member array {
 }
 model Customer object {
   _id: string @uuid
-  first_name: string @required @minLength(2) @maxLength(10) @ui(wc-input,1)
-  last_name: string @required @minLength(2) @maxLength(10) @ui(wc-input,2)
-  email: string @email @ui(wc-input,3)
-  age: integer @minimum(14) @exclusiveMaximum(130) @ui(wc-input,4)
-  license_date: string @format(date-time) @ui(wc-input,5)
-  gender: string @required @enum(male,female) @ui(wc-input,6)
+  first_name: string @required @minLength(2) @maxLength(10)
+  last_name: string @required @minLength(2) @maxLength(10)
+  email: string @email
+  age: integer @minimum(14) @exclusiveMaximum(130)
+  license_date: string @format(date-time)
+  gender: string @required @enum(male,female)
   address: object @ref(Address) @required
   household_members: array @ref(Member) @required @minItems(1) @uniqueItems
-  tags: array(string) @required @minItems(1) @uniqueItems @ui(wc-select-multiple,7,Collections)
+  tags: array(string) @required @minItems(1) @uniqueItems
   salary: number @required @minimum(30000) @maximum(999999) @can(view: "finance", delete: "finance_manager")
   policy_total: decimal @minimum(0.00) @maximum(999999.99) @default(0.00) @can(view: "accounting", delete: "accounting_manager")
   has_prior_coverage: boolean @required

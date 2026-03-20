@@ -14,7 +14,7 @@ CodeMirror.defineSimpleMode("litespec", {
     // Match annotations starting with @
     {
       regex:
-        /(@required|@can|@ref|@if|@minimum|@exclusiveMinimum|@maximum|@exclusiveMaximum|@minLength|@maxLength|@minItems|@maxItems|@uniqueItems|@uuid|@email|@format|@pattern|@enum|@const|@default|@ui|@breadcrumb|@sort|@trim|@trimStart|@trimEnd)/,
+        /(@required|@can|@ref|@if|@minimum|@exclusiveMinimum|@maximum|@exclusiveMaximum|@minLength|@maxLength|@minItems|@maxItems|@uniqueItems|@uuid|@email|@format|@pattern|@enum|@const|@default|@breadcrumb|@sort|@trim|@trimStart|@trimEnd)/,
       token: "attribute",
     },
 

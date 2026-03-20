@@ -6579,30 +6579,6 @@
             fieldSchema["$ref"] = `#/$defs/${refName.toLowerCase()}`;
           } else if (attr.startsWith("@required")) {
             context.requiredFields.push(field);
-          } else if (attr.startsWith("@ui")) {
-            if (context.ui) {
-              const m = attr.match(/@ui\((.*?)\)/)[1];
-              const [
-                uiType = "",
-                uiListType = "",
-                uiGroup = "",
-                uiOrder = 0,
-                uiLookup = "",
-                uiCollection = "",
-                uiCollectionDisplayMember = "",
-                uiCollectionValueMember = ""
-              ] = m.split(",");
-              context.ui[field] = {
-                uiType,
-                uiListType,
-                uiOrder: parseInt(uiOrder),
-                uiGroup,
-                uiLookup,
-                uiCollection,
-                uiCollectionDisplayMember,
-                uiCollectionValueMember
-              };
-            }
           } else if (attr.startsWith("@minItems")) {
             fieldSchema.minItems = parseInt(attr.match(/\d+/)[0]);
           } else if (attr.startsWith("@maxItems")) {
@@ -6685,7 +6661,7 @@
         }
         return attributes;
       }
-      function parseDSL(dsl, includeUI = false) {
+      function parseDSL(dsl) {
         const lines = dsl.split("\n").map((line) => line.trim()).filter((line) => line !== "");
         let schema = { $defs: {} };
         let rules = [];
@@ -6703,21 +6679,18 @@
             permissions = {};
             fieldPermissions = [];
             const [defName, defType] = line.match(/def (\w+) (object|array)/).slice(1);
-            let defSchema = defType === "object" ? { type: "object", properties: {}, ...includeUI && { ui: {} } } : {
+            let defSchema = defType === "object" ? { type: "object", properties: {} } : {
               type: "array",
               items: {
                 type: "object",
-                properties: {},
-                ...includeUI && { ui: {} }
+                properties: {}
               }
             };
             schema.$defs[defName.toLowerCase()] = defSchema;
             currentObject = defType === "object" ? defSchema : defSchema.items;
             stack.push({
               object: currentObject,
-              requiredFields: [],
-              ui: includeUI ? currentObject.ui : null
-              // Reference to this def's UI only if includeUI is true
+              requiredFields: []
             });
           } else if (line.startsWith("model ")) {
             rules = [];
@@ -6729,15 +6702,10 @@
             schema.title = modelName.toLowerCase();
             schema.type = "object";
             schema.properties = {};
-            if (includeUI) {
-              schema.ui = {};
-            }
             currentObject = schema;
             stack.push({
               object: currentObject,
-              requiredFields: [],
-              ui: includeUI ? schema.ui : null
-              // Reference to model's UI only if includeUI is true
+              requiredFields: []
             });
           } else if (line.startsWith("}")) {
             const context = stack.pop();

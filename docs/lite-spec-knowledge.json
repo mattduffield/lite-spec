@@ -1,0 +1,267 @@
+{
+  "meta": {
+    "name": "LiteSpec Knowledge Base",
+    "version": "1.0.0",
+    "description": "Structured documentation for LiteSpec, a DSL compiler that converts human-readable schema definitions into JSON Schema",
+    "lastUpdated": "2026-03-19"
+  },
+  "overview": {
+    "description": "LiteSpec is a Domain-Specific Language (DSL) compiler that converts human-readable schema definitions into JSON Schema (Draft 2020-12). It extends standard JSON Schema with permissions, conditional validation, and MongoDB-specific types. Used by Go Kart for schema generation.",
+    "purpose": [
+      "Replace verbose JSON Schema with concise, readable DSL syntax",
+      "Generate validation schemas from intuitive field definitions",
+      "Support permission-based access control at collection and field levels",
+      "Support conditional validation rules (if/then patterns)"
+    ],
+    "techStack": {
+      "language": "JavaScript ES6+",
+      "buildTool": "esbuild",
+      "validation": "AJV (Another JSON Schema Validator)",
+      "output": "JSON Schema Draft 2020-12",
+      "distribution": "IIFE bundle (browser) or ES module"
+    },
+    "integration": "Go Kart loads lite-spec.js in the browser. Schema definitions are written in LiteSpec DSL, compiled to JSON Schema, and stored in the _schema_builder MongoDB collection."
+  },
+  "syntax": {
+    "fileStructure": {
+      "description": "A LiteSpec file contains one or more type definitions (def) and exactly one model definition. Definitions create reusable types in $defs; the model becomes the root schema.",
+      "defBlock": "def TypeName object|array {\n  // field definitions\n  // rules (@if, @can, @sort, @breadcrumb)\n}",
+      "modelBlock": "model ModelName object {\n  // field definitions\n  // rules (@if, @can, @sort, @breadcrumb)\n}",
+      "comments": "// Single-line comments (can appear at end of any line)"
+    },
+    "fieldDefinition": {
+      "format": "fieldName: type @attribute1 @attribute2(params)",
+      "examples": [
+        "first_name: string @required @minLength(2) @maxLength(50)",
+        "email: string @email @required",
+        "age: integer @minimum(0) @maximum(130)",
+        "salary: number @minimum(30000) @maximum(999999)",
+        "policy_total: decimal @minimum(0.00) @maximum(999999.99) @default(0.00)",
+        "is_active: boolean @required @default(true)",
+        "status: string @required @enum(active,inactive,pending)",
+        "created_date: string @format(date-time)",
+        "address: object @ref(Address) @required",
+        "tags: array(string) @required @minItems(1) @uniqueItems",
+        "vehicles: array(@ref(Vehicle)) @uniqueItems",
+        "contact_id: objectid",
+        "_id: string @uuid"
+      ]
+    },
+    "types": {
+      "string": "Text field → JSON Schema 'string'",
+      "integer": "Whole number → JSON Schema 'integer'",
+      "number": "Floating point → JSON Schema 'number'",
+      "decimal": "Precise decimal → Maps to BSON Decimal128 (MongoDB)",
+      "boolean": "True/false → JSON Schema 'boolean'",
+      "objectid": "MongoDB ObjectId → string with pattern ^$|^[a-fA-F0-9]{24}$",
+      "object": "Nested object → use with @ref(TypeName) to reference a def block",
+      "array": "Array of items → use array(string) for typed arrays or array @ref(TypeName) for object arrays"
+    }
+  },
+  "attributes": {
+    "validation": {
+      "@required": {
+        "description": "Field must be present and non-empty",
+        "usage": "field_name: string @required"
+      },
+      "@minLength(n)": {
+        "description": "Minimum string length",
+        "usage": "username: string @minLength(3)"
+      },
+      "@maxLength(n)": {
+        "description": "Maximum string length",
+        "usage": "username: string @maxLength(50)"
+      },
+      "@minimum(n)": {
+        "description": "Minimum numeric value (inclusive)",
+        "usage": "age: integer @minimum(0)"
+      },
+      "@maximum(n)": {
+        "description": "Maximum numeric value (inclusive)",
+        "usage": "age: integer @maximum(130)"
+      },
+      "@exclusiveMinimum(n)": {
+        "description": "Must be greater than n (not equal)",
+        "usage": "price: number @exclusiveMinimum(0)"
+      },
+      "@exclusiveMaximum(n)": {
+        "description": "Must be less than n (not equal)",
+        "usage": "age: integer @exclusiveMaximum(130)"
+      },
+      "@multipleOf(n)": {
+        "description": "Number must be a multiple of n",
+        "usage": "quantity: integer @multipleOf(5)"
+      },
+      "@enum(values)": {
+        "description": "Restrict to enumerated values (comma-separated)",
+        "usage": "status: string @enum(active,inactive,pending)"
+      },
+      "@const(value)": {
+        "description": "Must equal this exact value",
+        "usage": "type: string @const(contact)"
+      },
+      "@default(value)": {
+        "description": "Default value when creating new records",
+        "usage": "is_active: boolean @default(true)"
+      },
+      "@format(type)": {
+        "description": "String format validation",
+        "formats": ["date-time", "date", "time", "email", "uri", "uuid"],
+        "usage": "created_date: string @format(date-time)"
+      },
+      "@pattern(regex)": {
+        "description": "Regular expression validation",
+        "usage": "phone: string @pattern(^\\d{3}-\\d{3}-\\d{4}$)"
+      },
+      "@email": {
+        "description": "Shorthand for @format(email)",
+        "usage": "email: string @email"
+      },
+      "@uuid": {
+        "description": "Shorthand for @format(uuid)",
+        "usage": "_id: string @uuid"
+      }
+    },
+    "arrays": {
+      "@minItems(n)": {
+        "description": "Minimum number of items in array",
+        "usage": "tags: array(string) @minItems(1)"
+      },
+      "@maxItems(n)": {
+        "description": "Maximum number of items in array",
+        "usage": "tags: array(string) @maxItems(10)"
+      },
+      "@uniqueItems": {
+        "description": "All array items must be unique",
+        "usage": "tags: array(string) @uniqueItems"
+      }
+    },
+    "references": {
+      "@ref(TypeName)": {
+        "description": "Reference a defined type (def block). Creates JSON Schema $ref pointer.",
+        "objectUsage": "address: object @ref(Address) @required",
+        "arrayUsage": "vehicles: array(@ref(Vehicle)) @uniqueItems"
+      }
+    },
+    "trimming": {
+      "@trim": "Trim leading and trailing whitespace (stored as x-trim)",
+      "@startTrim": "Trim only leading whitespace (stored as x-startTrim)",
+      "@endTrim": "Trim only trailing whitespace (stored as x-endTrim)"
+    },
+    "permissions": {
+      "@can(actions)": {
+        "description": "Access control at field or collection level",
+        "actions": ["view", "add", "edit", "delete"],
+        "specialTokens": ["@self — refers to record owner/creator"],
+        "fieldLevel": "salary: number @can(view: \"finance\", delete: \"finance_manager\")",
+        "collectionLevel": "@can(view: \"@self admin\", add: \"admin\", edit: \"admin editor\", delete: \"admin\")",
+        "notes": "Multiple roles are space-separated within quotes. Collection-level @can goes on its own line inside the block."
+      }
+    }
+  },
+  "conditionalValidation": {
+    "description": "Conditional validation rules using @if syntax. Generates JSON Schema allOf with if/then patterns.",
+    "syntax": "@if(propertyName: condition, actions)",
+    "conditionTypes": {
+      "@const(value)": "Property must equal exact value",
+      "@enum(val1,val2)": "Property must be one of values",
+      "@minimum(n)": "Property must be >= n",
+      "@maximum(n)": "Property must be <= n",
+      "@minLength(n)": "Property string length >= n",
+      "@maxLength(n)": "Property string length <= n",
+      "multiple": "Combine conditions: @minLength(1) @maxLength(99)"
+    },
+    "actionTypes": {
+      "@required(fieldName)": "Make field required when condition is true",
+      "@required(field.nested)": "Make nested property required (dot notation)",
+      "@required(arrayName[].field)": "Make array item property required",
+      "@minItems(arrayName, n)": "Require minimum items in array",
+      "@maxItems(arrayName, n)": "Limit maximum items in array"
+    },
+    "examples": {
+      "simpleBoolean": "@if(has_prior_coverage: @const(true), @required(prior_coverage_company))",
+      "enumCondition": "@if(gender: @enum(\"male\", \"female\"), @required(tags))",
+      "numericCondition": "@if(age: @minimum(16), @required(license_date))",
+      "stringPresence": "@if(modified_by: @minLength(1) @maxLength(99), @required(modified_date))",
+      "nestedProperty": "@if(quote.insurance_type: @enum(auto,motorcycle), @minItems(household_vehicles,1))",
+      "crossReference": "@if(quote.insurance_type: @enum(auto,motorcycle), @required(liability_limits.bi) @required(liability_limits.pd))",
+      "arrayItemRequirement": "@if(quote.insurance_type: @enum(auto,motorcycle), @required(household_members[].driver))",
+      "multipleActions": "@if(has_prior_coverage: @const(true), @required(prior_coverage_company) @required(prior_coverage_start_date))"
+    }
+  },
+  "sortAndBreadcrumb": {
+    "sort": {
+      "description": "Define default sort order for records",
+      "syntax": "@sort(fieldName, asc|desc)",
+      "usage": "@sort(created_date, desc)"
+    },
+    "breadcrumb": {
+      "description": "Define breadcrumb display for navigation",
+      "syntax": "@breadcrumb(fieldName, suffix)",
+      "usage": "@breadcrumb(customer_name, - Customer)"
+    }
+  },
+  "api": {
+    "description": "JavaScript API exposed by the lite-spec library",
+    "functions": {
+      "parseDSL(dslString)": {
+        "description": "Main compiler function. Parses LiteSpec DSL string and returns JSON Schema object.",
+        "params": {
+          "dslString": "String containing LiteSpec DSL code"
+        },
+        "returns": "JSON Schema object with $defs, properties, required, allOf, permissions"
+      },
+      "validateDataUsingSchema(schema, data)": {
+        "description": "Validates data against a generated JSON Schema using AJV",
+        "params": {
+          "schema": "JSON Schema object (from parseDSL)",
+          "data": "Data object to validate"
+        },
+        "returns": "{ valid: boolean, errors: array }"
+      },
+      "handlePermExpression(expression)": {
+        "description": "Parses a @can() permission expression string",
+        "returns": "Object with view, add, edit, delete permission arrays"
+      },
+      "handleIfExpression(expression)": {
+        "description": "Parses an @if() conditional expression string",
+        "returns": "JSON Schema if/then object for allOf array"
+      }
+    },
+    "browserUsage": "<script src=\"dist/lite-spec.min.js\"></script>\n<script>\n  const schema = litespec.parseDSL(dslString);\n  const result = litespec.validateDataUsingSchema(schema, data);\n</script>",
+    "goKartUsage": "Loaded via CDN or static file. Used in schema builder UI to convert LiteSpec DSL to JSON Schema stored in _schema_builder collection."
+  },
+  "outputStructure": {
+    "description": "Generated JSON Schema structure",
+    "structure": {
+      "$defs": "Map of type definitions (from def blocks) → reusable sub-schemas",
+      "title": "Model name (from model block)",
+      "type": "Always 'object' for models",
+      "properties": "Map of field name → JSON Schema property definition",
+      "required": "Array of required field names",
+      "allOf": "Array of if/then conditional validation rules",
+      "permissions": {
+        "collection": "Collection-level permissions {view, add, edit, delete}",
+        "field": "Array of field-level permission objects"
+      },
+      "sort": "Default sort rules",
+      "breadcrumb": "Breadcrumb configuration"
+    },
+    "specialHandling": {
+      "dateTime": "format: 'date-time' creates anyOf with empty string option for nullable dates",
+      "decimal": "Adds bsonType: 'Decimal128' for MongoDB compatibility",
+      "objectid": "Creates string with pattern: ^$|^[a-fA-F0-9]{24}$ for MongoDB ObjectId or empty",
+      "references": "Uses JSON Schema $ref: '#/$defs/TypeName' for type references"
+    }
+  },
+  "completeExample": {
+    "input": "def Address object {\n  street: string @required\n  city: string @required\n  state: string @required\n  postal_code: string @required\n  @can(view: \"@self\", add: \"admin editor\", edit: \"admin @self editor\", delete: \"@self admin\")\n}\n\ndef Member array {\n  first_name: string @required\n  middle_initial: string @minLength(1) @maxLength(1)\n  last_name: string\n  @if(first_name: @minLength(2) @maxLength(99), @required(middle_initial) @required(last_name))\n}\n\nmodel Customer object {\n  _id: string @uuid\n  first_name: string @required @minLength(2) @maxLength(10)\n  last_name: string @required @minLength(2) @maxLength(10)\n  email: string @email\n  age: integer @minimum(14) @exclusiveMaximum(130)\n  license_date: string @format(date-time)\n  gender: string @required @enum(male,female)\n  address: object @ref(Address) @required\n  household_members: array @ref(Member) @required @minItems(1) @uniqueItems\n  tags: array(string) @required @minItems(1) @uniqueItems\n  salary: number @required @minimum(30000) @maximum(999999) @can(view: \"finance\", delete: \"finance_manager\")\n  policy_total: decimal @minimum(0.00) @maximum(999999.99) @default(0.00)\n  has_prior_coverage: boolean @required\n  prior_coverage_company: string @minLength(2)\n  is_active: boolean @required @default(true)\n  created_date: string @format(date-time)\n  modified_by: string\n  modified_date: string @format(date-time)\n\n  @if(has_prior_coverage: @const(true), @required(prior_coverage_company))\n  @if(age: @minimum(16), @required(license_date))\n  @if(gender: @enum(\"male\", \"female\"), @required(tags))\n  @if(modified_by: @minLength(1) @maxLength(99), @required(modified_date))\n\n  @can(view: \"@self admin\", add: \"admin\", edit: \"admin editor\", delete: \"admin\")\n  @sort(created_date, desc)\n  @breadcrumb(first_name, - Customer)\n}",
+    "description": "This example defines an Address type, a Member array type with conditional validation, and a Customer model with multiple field types, conditional rules, permissions, sorting, and breadcrumb configuration."
+  },
+  "patterns": {
+    "simpleEntity": "model Contact object {\n  first_name: string @required @minLength(2)\n  last_name: string @required @minLength(2)\n  email: string @email\n  phone: string\n  is_active: boolean @default(true)\n  created_date: string @format(date-time)\n  @can(view: \"@self admin\", add: \"admin\", edit: \"admin\", delete: \"admin\")\n}",
+    "entityWithLookup": "model Product object {\n  name: string @required\n  description: string\n  category: string @required @enum(electronics,clothing,food,other)\n  price: number @required @minimum(0)\n  in_stock: boolean @default(true)\n  @can(view: \"@self admin\", add: \"admin\", edit: \"admin editor\", delete: \"admin\")\n}",
+    "entityWithNestedObjects": "def Address object {\n  street: string @required\n  city: string @required\n  state: string @required\n  zip: string @required @pattern(^\\d{5}(-\\d{4})?$)\n}\n\nmodel Company object {\n  name: string @required\n  billing_address: object @ref(Address) @required\n  shipping_address: object @ref(Address)\n  is_active: boolean @default(true)\n}",
+    "entityWithArrays": "def LineItem array {\n  product: string @required\n  quantity: integer @required @minimum(1)\n  unit_price: number @required @minimum(0)\n}\n\nmodel Order object {\n  customer_id: objectid @required\n  line_items: array @ref(LineItem) @required @minItems(1)\n  total: number @minimum(0)\n  status: string @required @enum(pending,processing,shipped,delivered,cancelled) @default(pending)\n  order_date: string @format(date-time)\n}"
+  }
+}
