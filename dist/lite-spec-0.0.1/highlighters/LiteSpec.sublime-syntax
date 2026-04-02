@@ -11,11 +11,11 @@ contexts:
       scope: keyword.control.litespec
 
     # Match object and array definitions
-    - match: \b(object|array|string|number|integer|boolean|decimal|objectid)\b
+    - match: \b(object|array|string|number|integer|boolean|decimal|objectid|AND|OR|IN)\b
       scope: punctuation.definition.litespec
 
     # Match annotations starting with '@'
-    - match: '(@required|@can|@ref|@if|@minimum|@exclusiveMinimum|@maximum|@exclusiveMaximum|@minLength|@maxLength|@minItems|@maxItems|@uniqueItems|@uuid|@email|@format|@enum|@const|@default|@trim|@startTrim|@endTrim)'
+    - match: '(@required|@can|@filter|@actions|@ref|@if|@minimum|@exclusiveMinimum|@maximum|@exclusiveMaximum|@minLength|@maxLength|@minItems|@maxItems|@uniqueItems|@uuid|@email|@format|@enum|@const|@default|@trim|@startTrim|@endTrim)'
       scope: keyword.other.annotation.litespec
 
     # Match field names

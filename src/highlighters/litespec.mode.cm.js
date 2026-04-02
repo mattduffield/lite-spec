@@ -7,14 +7,14 @@ CodeMirror.defineSimpleMode("litespec", {
     // Match types like object, array, string, number, etc.
     {
       regex:
-        /\b(object|array|string|number|integer|boolean|decimal|objectid|asc|desc)\b/,
+        /\b(object|array|string|number|integer|boolean|decimal|objectid|asc|desc|AND|OR|IN)\b/,
       token: "atom",
     },
 
     // Match annotations starting with @
     {
       regex:
-        /(@required|@can|@ref|@if|@minimum|@exclusiveMinimum|@maximum|@exclusiveMaximum|@minLength|@maxLength|@minItems|@maxItems|@uniqueItems|@uuid|@email|@format|@pattern|@enum|@const|@default|@breadcrumb|@sort|@trim|@trimStart|@trimEnd)/,
+        /(@required|@can|@filter|@actions|@ref|@if|@minimum|@exclusiveMinimum|@maximum|@exclusiveMaximum|@minLength|@maxLength|@minItems|@maxItems|@uniqueItems|@uuid|@email|@format|@pattern|@enum|@const|@default|@breadcrumb|@sort|@trim|@trimStart|@trimEnd)/,
       token: "attribute",
     },
 

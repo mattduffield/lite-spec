@@ -92,13 +92,23 @@
       "type": "string"
     },
     "age": {
-      "type": "number",
+      "type": "integer",
       "minimum": 14,
-      "maximum": 130
+      "exclusiveMaximum": 130
     },
     "license_date": {
-      "type": "string",
-      "format": "date-time"
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time"
+        },
+        {
+          "type": "string",
+          "enum": [
+            ""
+          ]
+        }
+      ]
     },
     "gender": {
       "type": "string",
@@ -130,6 +140,12 @@
       "minimum": 30000,
       "maximum": 999999
     },
+    "policy_total": {
+      "type": "decimal",
+      "minimum": 0,
+      "maximum": 999999,
+      "default": "0.00"
+    },
     "has_prior_coverage": {
       "type": "boolean"
     },
@@ -145,15 +161,35 @@
       "type": "string"
     },
     "created_date": {
-      "type": "string",
-      "format": "date-time"
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time"
+        },
+        {
+          "type": "string",
+          "enum": [
+            ""
+          ]
+        }
+      ]
     },
     "modified_by": {
       "type": "string"
     },
     "modified_date": {
-      "type": "string",
-      "format": "date-time"
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time"
+        },
+        {
+          "type": "string",
+          "enum": [
+            ""
+          ]
+        }
+      ]
     }
   },
   "required": [
@@ -212,6 +248,21 @@
           "tags"
         ]
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "modified_by": {
+            "minLength": 1,
+            "maxLength": 99
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "modified_date"
+        ]
+      }
     }
   ],
   "permissions": {
@@ -221,13 +272,57 @@
       "edit": "admin editor",
       "delete": "admin"
     },
+    "filters": {
+      "view": {
+        "rules": [
+          {
+            "when": {
+              "role": "agent"
+            },
+            "filter": {
+              "address.state": "@user.region"
+            }
+          },
+          {
+            "when": {
+              "role": "manager"
+            },
+            "filter": {
+              "created_by": {
+                "$in": "@user.team_members"
+              }
+            }
+          },
+          {
+            "when": {
+              "role": "admin"
+            },
+            "filter": null
+          }
+        ]
+      }
+    },
     "field": [
       {
         "salary": {
           "view": "finance",
           "delete": "finance_manager"
         }
+      },
+      {
+        "policy_total": {
+          "view": "accounting",
+          "delete": "accounting_manager"
+        }
       }
-    ]
+    ],
+    "actions": {
+      "export": "admin",
+      "clone": "admin",
+      "run_script": "admin",
+      "send_email": "admin agent",
+      "view_change_log": "admin agent",
+      "bulk_delete": "admin"
+    }
   }
 }

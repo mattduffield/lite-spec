@@ -1,9 +1,9 @@
 {
   "meta": {
     "name": "LiteSpec Knowledge Base",
-    "version": "1.0.0",
+    "version": "0.0.1",
     "description": "Structured documentation for LiteSpec, a DSL compiler that converts human-readable schema definitions into JSON Schema",
-    "lastUpdated": "2026-03-19"
+    "lastUpdated": "2026-03-26"
   },
   "overview": {
     "description": "LiteSpec is a Domain-Specific Language (DSL) compiler that converts human-readable schema definitions into JSON Schema (Draft 2020-12). It extends standard JSON Schema with permissions, conditional validation, and MongoDB-specific types. Used by Go Kart for schema generation.",
@@ -156,6 +156,23 @@
         "fieldLevel": "salary: number @can(view: \"finance\", delete: \"finance_manager\")",
         "collectionLevel": "@can(view: \"@self admin\", add: \"admin\", edit: \"admin editor\", delete: \"admin\")",
         "notes": "Multiple roles are space-separated within quotes. Collection-level @can goes on its own line inside the block."
+      },
+      "@filter(action: condition)": {
+        "description": "Row-level security filters that restrict data based on user attributes",
+        "operators": ["== (equality)", "!= (not equal)", "IN (membership)", "AND (conjunction)", "OR (disjunction)"],
+        "userReferences": "@user.fieldName resolves against the current user document at runtime",
+        "simpleFilter": "@filter(view: address.state == @user.region)",
+        "compoundFilter": "@filter(view: address.state == @user.region AND is_active == true)",
+        "inOperator": "@filter(view: created_by IN @user.team_members)",
+        "roleBasedFilter": "@filter(view: {\n  agent: address.state == @user.region,\n  manager: created_by IN @user.team_members,\n  admin: *\n})",
+        "wildcardBypass": "Use * as the condition for roles that should see all records (admin bypass)",
+        "notes": "Supports multi-line syntax. Multiple @filter directives can be used for different actions. The @user.* references are resolved server-side against the authenticated user document."
+      },
+      "@actions(action: roles)": {
+        "description": "Controls who can perform specific operations beyond CRUD",
+        "commonActions": ["export", "import", "clone", "run_script", "run_web_pilot", "send_email", "view_change_log", "bulk_delete"],
+        "syntax": "@actions(\n  export: \"admin editor\",\n  import: \"admin\",\n  clone: \"admin\",\n  run_script: \"admin\"\n)",
+        "notes": "Action names are user-defined. Roles are space-separated within quotes. Supports multi-line syntax. Same key: \"value\" format as @can."
       }
     }
   },
@@ -223,6 +240,10 @@
         "description": "Parses a @can() permission expression string",
         "returns": "Object with view, add, edit, delete permission arrays"
       },
+      "handleFilterExpression(expression)": {
+        "description": "Parses a @filter() row-level security expression string",
+        "returns": "Object keyed by action with rules array containing filter objects"
+      },
       "handleIfExpression(expression)": {
         "description": "Parses an @if() conditional expression string",
         "returns": "JSON Schema if/then object for allOf array"
@@ -242,7 +263,9 @@
       "allOf": "Array of if/then conditional validation rules",
       "permissions": {
         "collection": "Collection-level permissions {view, add, edit, delete}",
-        "field": "Array of field-level permission objects"
+        "filters": "Row-level filter rules keyed by action, each containing a rules array with optional when/role conditions and filter objects",
+        "field": "Array of field-level permission objects",
+        "actions": "Action-level permissions {export, import, clone, run_script, etc.}"
       },
       "sort": "Default sort rules",
       "breadcrumb": "Breadcrumb configuration"
@@ -255,8 +278,8 @@
     }
   },
   "completeExample": {
-    "input": "def Address object {\n  street: string @required\n  city: string @required\n  state: string @required\n  postal_code: string @required\n  @can(view: \"@self\", add: \"admin editor\", edit: \"admin @self editor\", delete: \"@self admin\")\n}\n\ndef Member array {\n  first_name: string @required\n  middle_initial: string @minLength(1) @maxLength(1)\n  last_name: string\n  @if(first_name: @minLength(2) @maxLength(99), @required(middle_initial) @required(last_name))\n}\n\nmodel Customer object {\n  _id: string @uuid\n  first_name: string @required @minLength(2) @maxLength(10)\n  last_name: string @required @minLength(2) @maxLength(10)\n  email: string @email\n  age: integer @minimum(14) @exclusiveMaximum(130)\n  license_date: string @format(date-time)\n  gender: string @required @enum(male,female)\n  address: object @ref(Address) @required\n  household_members: array @ref(Member) @required @minItems(1) @uniqueItems\n  tags: array(string) @required @minItems(1) @uniqueItems\n  salary: number @required @minimum(30000) @maximum(999999) @can(view: \"finance\", delete: \"finance_manager\")\n  policy_total: decimal @minimum(0.00) @maximum(999999.99) @default(0.00)\n  has_prior_coverage: boolean @required\n  prior_coverage_company: string @minLength(2)\n  is_active: boolean @required @default(true)\n  created_date: string @format(date-time)\n  modified_by: string\n  modified_date: string @format(date-time)\n\n  @if(has_prior_coverage: @const(true), @required(prior_coverage_company))\n  @if(age: @minimum(16), @required(license_date))\n  @if(gender: @enum(\"male\", \"female\"), @required(tags))\n  @if(modified_by: @minLength(1) @maxLength(99), @required(modified_date))\n\n  @can(view: \"@self admin\", add: \"admin\", edit: \"admin editor\", delete: \"admin\")\n  @sort(created_date, desc)\n  @breadcrumb(first_name, - Customer)\n}",
-    "description": "This example defines an Address type, a Member array type with conditional validation, and a Customer model with multiple field types, conditional rules, permissions, sorting, and breadcrumb configuration."
+    "input": "def Address object {\n  street: string @required\n  city: string @required\n  state: string @required\n  postal_code: string @required\n  @can(view: \"@self\", add: \"admin editor\", edit: \"admin @self editor\", delete: \"@self admin\")\n}\n\ndef Member array {\n  first_name: string @required\n  middle_initial: string @minLength(1) @maxLength(1)\n  last_name: string\n  @if(first_name: @minLength(2) @maxLength(99), @required(middle_initial) @required(last_name))\n}\n\nmodel Customer object {\n  _id: string @uuid\n  first_name: string @required @minLength(2) @maxLength(10)\n  last_name: string @required @minLength(2) @maxLength(10)\n  email: string @email\n  age: integer @minimum(14) @exclusiveMaximum(130)\n  license_date: string @format(date-time)\n  gender: string @required @enum(male,female)\n  address: object @ref(Address) @required\n  household_members: array @ref(Member) @required @minItems(1) @uniqueItems\n  tags: array(string) @required @minItems(1) @uniqueItems\n  salary: number @required @minimum(30000) @maximum(999999) @can(view: \"finance\", delete: \"finance_manager\")\n  policy_total: decimal @minimum(0.00) @maximum(999999.99) @default(0.00)\n  has_prior_coverage: boolean @required\n  prior_coverage_company: string @minLength(2)\n  is_active: boolean @required @default(true)\n  created_by: string\n  created_date: string @format(date-time)\n  modified_by: string\n  modified_date: string @format(date-time)\n\n  @if(has_prior_coverage: @const(true), @required(prior_coverage_company))\n  @if(age: @minimum(16), @required(license_date))\n  @if(gender: @enum(\"male\", \"female\"), @required(tags))\n  @if(modified_by: @minLength(1) @maxLength(99), @required(modified_date))\n\n  @can(view: \"@self admin\", add: \"admin\", edit: \"admin editor\", delete: \"admin\")\n  @filter(view: { agent: address.state == @user.region, manager: created_by IN @user.team_members, admin: * })\n  @actions(export: \"admin\", clone: \"admin\", run_script: \"admin\", send_email: \"admin agent\", view_change_log: \"admin agent\", bulk_delete: \"admin\")\n  @sort(created_date, desc)\n  @breadcrumb(first_name, - Customer)\n}",
+    "description": "This example defines an Address type, a Member array type with conditional validation, and a Customer model with multiple field types, conditional rules, permissions, row-level filters, action permissions, sorting, and breadcrumb configuration."
   },
   "patterns": {
     "simpleEntity": "model Contact object {\n  first_name: string @required @minLength(2)\n  last_name: string @required @minLength(2)\n  email: string @email\n  phone: string\n  is_active: boolean @default(true)\n  created_date: string @format(date-time)\n  @can(view: \"@self admin\", add: \"admin\", edit: \"admin\", delete: \"admin\")\n}",

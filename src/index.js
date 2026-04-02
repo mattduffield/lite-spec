@@ -43,6 +43,122 @@ function handlePermExpression(expression) {
 }
 
 /**
+ * Parses a filter value into the appropriate JS type
+ * @param {string} val - The raw value string
+ * @returns {*} The parsed value
+ */
+function parseFilterValue(val) {
+  val = val.trim();
+  if (val === "true") return true;
+  if (val === "false") return false;
+  if (val.startsWith('"') && val.endsWith('"')) return val.slice(1, -1);
+  if (val !== "" && !isNaN(val)) return Number(val);
+  return val;
+}
+
+/**
+ * Parses a single filter condition string into a filter object
+ * Supports ==, !=, IN operators, and AND/OR combinators
+ * @param {string} condStr - The condition string (e.g., "address.state == @user.region")
+ * @returns {object} The filter object for JSON Schema
+ */
+function parseFilterCondition(condStr) {
+  condStr = condStr.trim();
+
+  // Check for OR (split on " OR " at top level)
+  if (/ OR /.test(condStr)) {
+    const parts = condStr.split(/ OR /).map((p) => p.trim());
+    return { $or: parts.map((p) => parseFilterCondition(p)) };
+  }
+
+  // Check for AND
+  if (/ AND /.test(condStr)) {
+    const parts = condStr.split(/ AND /).map((p) => p.trim());
+    const merged = {};
+    for (const part of parts) {
+      Object.assign(merged, parseFilterCondition(part));
+    }
+    return merged;
+  }
+
+  // IN operator
+  const inMatch = condStr.match(/^(.+?)\s+IN\s+(.+)$/);
+  if (inMatch) {
+    return { [inMatch[1].trim()]: { $in: inMatch[2].trim() } };
+  }
+
+  // != operator
+  const neqMatch = condStr.match(/^(.+?)\s*!=\s*(.+)$/);
+  if (neqMatch) {
+    return { [neqMatch[1].trim()]: { $ne: parseFilterValue(neqMatch[2]) } };
+  }
+
+  // == operator
+  const eqMatch = condStr.match(/^(.+?)\s*==\s*(.+)$/);
+  if (eqMatch) {
+    return { [eqMatch[1].trim()]: parseFilterValue(eqMatch[2]) };
+  }
+
+  throw new Error(`Invalid filter condition: ${condStr}`);
+}
+
+/**
+ * Parses a @filter expression and returns a filters object
+ * Supports simple conditions and role-based filter maps
+ * @param {string} expression - The @filter expression to parse
+ * @returns {object} The filters object keyed by action (e.g., { view: { rules: [...] } })
+ */
+function handleFilterExpression(expression) {
+  // Find balanced content inside @filter(...)
+  const start = expression.indexOf("(");
+  let depth = 0;
+  let end = -1;
+  for (let i = start; i < expression.length; i++) {
+    if (expression[i] === "(") depth++;
+    else if (expression[i] === ")") {
+      depth--;
+      if (depth === 0) {
+        end = i;
+        break;
+      }
+    }
+  }
+
+  const inner = expression.substring(start + 1, end).trim();
+
+  // Split action from body at the first colon
+  const colonIdx = inner.indexOf(":");
+  const action = inner.substring(0, colonIdx).trim();
+  const body = inner.substring(colonIdx + 1).trim();
+
+  if (body.startsWith("{")) {
+    // Role-based filters: { role: condition, role: condition, ... }
+    const innerBody = body.slice(1, -1).trim();
+    const rules = [];
+
+    // Split by comma at the top level
+    const parts = innerBody.split(",").map((p) => p.trim()).filter((p) => p);
+
+    for (const part of parts) {
+      const roleColonIdx = part.indexOf(":");
+      const role = part.substring(0, roleColonIdx).trim();
+      const condition = part.substring(roleColonIdx + 1).trim();
+
+      if (condition === "*") {
+        rules.push({ when: { role }, filter: null });
+      } else {
+        rules.push({ when: { role }, filter: parseFilterCondition(condition) });
+      }
+    }
+
+    return { [action]: { rules } };
+  } else {
+    // Simple filter: single condition
+    return { [action]: { rules: [{ filter: parseFilterCondition(body) }] } };
+  }
+}
+
+/**
  * Parses an IF expression and returns a schema object
  * @param {string} expression - The IF expression to parse
  * @returns {object} The IF schema
@@ -402,16 +518,61 @@ function extractAttributes(typeString) {
  * @returns {object} The parsed JSON Schema
  */
 function parseDSL(dsl) {
-  const lines = dsl
+  const rawLines = dsl
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line !== "");
+
+  // Join multi-line directives (@filter, @actions) into single lines
+  const lines = [];
+  let accumulator = null;
+  let parenDepth = 0;
+
+  for (const line of rawLines) {
+    if (accumulator !== null) {
+      accumulator += " " + line;
+      for (const ch of line) {
+        if (ch === "(") parenDepth++;
+        else if (ch === ")") parenDepth--;
+      }
+      if (parenDepth <= 0) {
+        lines.push(accumulator);
+        accumulator = null;
+        parenDepth = 0;
+      }
+    } else if (
+      (line.startsWith("@filter") || line.startsWith("@actions")) &&
+      (() => {
+        let d = 0;
+        for (const ch of line) {
+          if (ch === "(") d++;
+          else if (ch === ")") d--;
+        }
+        return d > 0;
+      })()
+    ) {
+      accumulator = line;
+      parenDepth = 0;
+      for (const ch of line) {
+        if (ch === "(") parenDepth++;
+        else if (ch === ")") parenDepth--;
+      }
+    } else {
+      lines.push(line);
+    }
+  }
+  if (accumulator !== null) {
+    lines.push(accumulator);
+  }
+
   let schema = { $defs: {} };
   let rules = [];
   let sortRules = [];
   let breadcrumbRules = [];
   let permissions = {};
   let fieldPermissions = [];
+  let filterRules = {};
+  let actionPermissions = {};
   let stack = [];
   let currentObject = schema;
 
@@ -423,6 +584,8 @@ function parseDSL(dsl) {
       breadcrumbRules = [];
       permissions = {};
       fieldPermissions = [];
+      filterRules = {};
+      actionPermissions = {};
 
       const [defName, defType] = line
         .match(/def (\w+) (object|array)/)
@@ -451,6 +614,8 @@ function parseDSL(dsl) {
       breadcrumbRules = [];
       permissions = {};
       fieldPermissions = [];
+      filterRules = {};
+      actionPermissions = {};
 
       const modelName = line.match(/model (\w+)/)[1];
       schema.title = modelName.toLowerCase();
@@ -476,14 +641,25 @@ function parseDSL(dsl) {
       if (breadcrumbRules.length > 0) {
         currentObject.breadcrumb = breadcrumbRules;
       }
-      if (Object.keys(permissions).length > 0) {
-        currentObject.permissions = { collection: permissions };
-      }
-      if (fieldPermissions.length > 0) {
-        currentObject.permissions = {
-          ...currentObject.permissions,
-          field: fieldPermissions,
-        };
+      if (
+        Object.keys(permissions).length > 0 ||
+        Object.keys(filterRules).length > 0 ||
+        Object.keys(actionPermissions).length > 0 ||
+        fieldPermissions.length > 0
+      ) {
+        currentObject.permissions = {};
+        if (Object.keys(permissions).length > 0) {
+          currentObject.permissions.collection = permissions;
+        }
+        if (Object.keys(filterRules).length > 0) {
+          currentObject.permissions.filters = filterRules;
+        }
+        if (fieldPermissions.length > 0) {
+          currentObject.permissions.field = fieldPermissions;
+        }
+        if (Object.keys(actionPermissions).length > 0) {
+          currentObject.permissions.actions = actionPermissions;
+        }
       }
 
       // Reset for next section
@@ -492,6 +668,8 @@ function parseDSL(dsl) {
       breadcrumbRules = [];
       permissions = {};
       fieldPermissions = [];
+      filterRules = {};
+      actionPermissions = {};
 
       if (stack.length > 0) {
         currentObject = stack[stack.length - 1].object;
@@ -507,6 +685,11 @@ function parseDSL(dsl) {
       sortRules.push(rule);
     } else if (line.startsWith("@can")) {
       permissions = handlePermExpression(line);
+    } else if (line.startsWith("@filter")) {
+      const parsed = handleFilterExpression(line);
+      Object.assign(filterRules, parsed);
+    } else if (line.startsWith("@actions")) {
+      actionPermissions = handlePermExpression(line);
     } else if (line.includes("array(")) {
       const [field, type] = line.split(":").map((v) => v.trim());
       const attributes = extractAttributes(type);
@@ -602,6 +785,7 @@ if (typeof window !== "undefined") {
     window.litespec = {};
   }
   window.litespec.handlePermExpression = handlePermExpression;
+  window.litespec.handleFilterExpression = handleFilterExpression;
   window.litespec.handleIfExpression = handleIfExpression;
   window.litespec.handleAttributes = handleAttributes;
   window.litespec.parseDSL = parseDSL;
@@ -613,6 +797,7 @@ try {
   if (typeof module !== "undefined" && module.exports) {
     module.exports = {
       handlePermExpression,
+      handleFilterExpression,
       handleIfExpression,
       handleAttributes,
       parseDSL,

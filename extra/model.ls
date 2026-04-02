@@ -37,5 +37,20 @@ model Customer object {
   @if(gender: @enum("male", "female"), @required(tags))
   @if(modified_by: @minLength(1) @maxLength(99), @required(modified_date))
 
-  @can(view: "@self admin", add: "admin", edit: "admin editor", delete: "admin")  // This is a comment
+  @can(view: "@self admin", add: "admin", edit: "admin editor", delete: "admin")
+
+  @filter(view: {
+    agent: address.state == @user.region,
+    manager: created_by IN @user.team_members,
+    admin: *
+  })
+
+  @actions(
+    export: "admin",
+    clone: "admin",
+    run_script: "admin",
+    send_email: "admin agent",
+    view_change_log: "admin agent",
+    bulk_delete: "admin"
+  )
 }

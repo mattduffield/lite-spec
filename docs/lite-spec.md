@@ -79,14 +79,14 @@ This creates a JSON Schema rule that makes `prior_coverage_company` required whe
 
 ## Permissions
 
-Permissions can be defined at both collection and field levels using the `@can` attribute.
+Permissions can be defined at collection, field, row, and action levels.
 
-### Collection-Level Permissions
+### Collection-Level Permissions (`@can`)
 ```
 @can(view: "role1 role2", add: "role3", edit: "role4", delete: "role5")
 ```
 
-### Field-Level Permissions
+### Field-Level Permissions (`@can` on fields)
 ```
 salary: number @can(view: "finance", delete: "finance_manager")
 ```
@@ -94,6 +94,59 @@ salary: number @can(view: "finance", delete: "finance_manager")
 Special tokens:
 - `@self`: Refers to the owner/creator of the record
 - Roles can be space-separated for multiple role support
+
+### Row-Level Filters (`@filter`)
+
+The `@filter` directive defines row-level security rules that filter data based on the current user's attributes.
+
+#### Simple Filter
+```
+@filter(view: address.state == @user.region)
+```
+
+#### Compound Conditions
+```
+@filter(view: address.state == @user.region AND is_active == true)
+@filter(view: assigned_to == @user.username OR assigned_to == "")
+```
+
+#### IN Operator
+```
+@filter(view: created_by IN @user.team_members)
+```
+
+#### Role-Based Filters
+Different roles can have different filter rules. Use `*` for no filter (admin bypass):
+```
+@filter(view: {
+  agent: address.state == @user.region,
+  manager: created_by IN @user.team_members,
+  admin: *
+})
+```
+
+The `@user.*` references resolve against the current user document at runtime.
+
+**Supported operators:** `==`, `!=`, `IN`, `AND`, `OR`
+
+### Action Permissions (`@actions`)
+
+The `@actions` directive controls who can perform specific operations beyond CRUD:
+
+```
+@actions(
+  export: "admin editor",
+  import: "admin",
+  clone: "admin",
+  run_script: "admin",
+  run_web_pilot: "admin agent",
+  send_email: "admin agent",
+  view_change_log: "admin editor",
+  bulk_delete: "admin"
+)
+```
+
+Action names are user-defined. Common actions include: `export`, `import`, `clone`, `run_script`, `run_web_pilot`, `send_email`, `view_change_log`, `bulk_delete`.
 
 ## Arrays and References
 
@@ -135,14 +188,24 @@ model Customer object {
   address: object @ref(Address) @required
   salary: number @required @minimum(30000) @maximum(999999)
   is_active: boolean @required @default(true)
-  
+  created_by: string
+  modified_by: string
+  modified_date: string @format(date-time)
+
   @if(modified_by: @minLength(1), @required(modified_date))
   @can(view: "@self admin", add: "admin", edit: "admin editor", delete: "admin")
+
+  @filter(view: {
+    agent: address.state == @user.region,
+    admin: *
+  })
+
+  @actions(export: "admin", clone: "admin", bulk_delete: "admin")
 }
 ```
 
 ### Output
-The DSL is converted to a JSON Schema with additional metadata for permissions and UI hints. The schema can be used with standard JSON Schema validators and extended to support the permission system.
+The DSL is converted to a JSON Schema with additional metadata for permissions, row-level filters, and action controls. The schema can be used with standard JSON Schema validators and extended to support the permission system.
 
 ## API Usage
 
