@@ -740,6 +740,7 @@ function parseDSL(dsl) {
       stack.push({
         object: currentObject,
         requiredFields: [],
+        blockType: "def",
       });
     } else if (line.startsWith("model ")) {
       // Reset collections for the model
@@ -759,6 +760,7 @@ function parseDSL(dsl) {
       stack.push({
         object: currentObject,
         requiredFields: [],
+        blockType: "model",
       });
     } else if (line.startsWith("}")) {
       const context = stack.pop();
@@ -775,33 +777,36 @@ function parseDSL(dsl) {
       if (breadcrumbRules.length > 0) {
         currentObject.breadcrumb = breadcrumbRules;
       }
-      // Validate conditional permission field references
-      const props = currentObject.properties || {};
-      for (const fp of fieldPermissions) {
-        for (const [field, perms] of Object.entries(fp)) {
-          for (const [key, value] of Object.entries(perms)) {
-            if (key.endsWith("_when") && Array.isArray(value)) {
-              for (const rule of value) {
-                const topField = rule.path.split(".")[0];
-                if (!props[topField]) {
-                  throw new Error(
-                    `@can @if on field "${field}" references unknown field "${rule.path}" — no property "${topField}" exists in this block`,
-                  );
+      // Validate conditional permission field references (model blocks only —
+      // def blocks are fragments that may reference fields in the parent model)
+      if (context.blockType === "model") {
+        const props = currentObject.properties || {};
+        for (const fp of fieldPermissions) {
+          for (const [field, perms] of Object.entries(fp)) {
+            for (const [key, value] of Object.entries(perms)) {
+              if (key.endsWith("_when") && Array.isArray(value)) {
+                for (const rule of value) {
+                  const topField = rule.path.split(".")[0];
+                  if (!props[topField]) {
+                    throw new Error(
+                      `@can @if on field "${field}" references unknown field "${rule.path}" — no property "${topField}" exists in this model`,
+                    );
+                  }
                 }
               }
             }
           }
         }
-      }
-      // Validate collection-level conditional permission references
-      for (const [key, value] of Object.entries(permissions)) {
-        if (key.endsWith("_when") && Array.isArray(value)) {
-          for (const rule of value) {
-            const topField = rule.path.split(".")[0];
-            if (!props[topField]) {
-              throw new Error(
-                `@can @if references unknown field "${rule.path}" — no property "${topField}" exists in this block`,
-              );
+        // Validate collection-level conditional permission references
+        for (const [key, value] of Object.entries(permissions)) {
+          if (key.endsWith("_when") && Array.isArray(value)) {
+            for (const rule of value) {
+              const topField = rule.path.split(".")[0];
+              if (!props[topField]) {
+                throw new Error(
+                  `@can @if references unknown field "${rule.path}" — no property "${topField}" exists in this model`,
+                );
+              }
             }
           }
         }
