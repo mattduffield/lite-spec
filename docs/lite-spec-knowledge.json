@@ -3,7 +3,7 @@
     "name": "LiteSpec Knowledge Base",
     "version": "0.0.1",
     "description": "Structured documentation for LiteSpec, a DSL compiler that converts human-readable schema definitions into JSON Schema",
-    "lastUpdated": "2026-03-26"
+    "lastUpdated": "2026-04-30"
   },
   "overview": {
     "description": "LiteSpec is a Domain-Specific Language (DSL) compiler that converts human-readable schema definitions into JSON Schema (Draft 2020-12). It extends standard JSON Schema with permissions, conditional validation, and MongoDB-specific types. Used by Go Kart for schema generation.",
@@ -150,11 +150,32 @@
     },
     "permissions": {
       "@can(actions)": {
-        "description": "Access control at field or collection level",
+        "description": "Access control at field or collection level. Supports optional @if clause for conditional permissions.",
         "actions": ["view", "add", "edit", "delete"],
         "specialTokens": ["@self — refers to record owner/creator"],
         "fieldLevel": "salary: number @can(view: \"finance\", delete: \"finance_manager\")",
         "collectionLevel": "@can(view: \"@self admin\", add: \"admin\", edit: \"admin editor\", delete: \"admin\")",
+        "conditionalFieldLevel": {
+          "description": "Embed @if(...) as the last argument in @can to make permissions conditional on record field values. The @if conditions are AND'd. Applies to all verbs in the same @can directive.",
+          "syntax": "@can(verb: \"roles\", @if(fieldPath: @match(value)))",
+          "supportedMatches": ["@const(value) — exact value match", "@enum(val1, val2) — value-in-set match"],
+          "examples": [
+            "custom_hue: string @can(edit: \"admin\", @if(plan: @enum(enterprise)))",
+            "discount_pct: number @can(view: \"admin sales\", edit: \"admin\", @if(tier: @const(premium)))",
+            "bulk_limit: integer @can(edit: \"admin\", @if(plan: @enum(team, enterprise), is_active: @const(true)))"
+          ],
+          "outputShape": {
+            "description": "Each verb gets a parallel <verb>_when key containing an array of condition rules",
+            "example": {
+              "edit": "admin",
+              "edit_when": [
+                { "path": "plan", "match": "enum", "values": ["enterprise"] }
+              ]
+            }
+          },
+          "validation": "The @if clause must reference fields that exist in the same model/def block. Unknown field references raise a parse error.",
+          "notes": "Without @if, output is identical to today. Multiple conditions in one @if produce an array of rules (AND semantics). Dotted paths (e.g., quota.max_reports) are supported; the top-level segment must exist in properties."
+        },
         "notes": "Multiple roles are space-separated within quotes. Collection-level @can goes on its own line inside the block."
       },
       "@filter(action: condition)": {
@@ -237,8 +258,8 @@
         "returns": "{ valid: boolean, errors: array }"
       },
       "handlePermExpression(expression)": {
-        "description": "Parses a @can() permission expression string",
-        "returns": "Object with view, add, edit, delete permission arrays"
+        "description": "Parses a @can() permission expression string. Detects embedded @if(...) clauses and emits <verb>_when condition arrays alongside verb:roles pairs.",
+        "returns": "Object with view, add, edit, delete permission strings and optional <verb>_when condition arrays"
       },
       "handleFilterExpression(expression)": {
         "description": "Parses a @filter() row-level security expression string",
@@ -264,7 +285,7 @@
       "permissions": {
         "collection": "Collection-level permissions {view, add, edit, delete}",
         "filters": "Row-level filter rules keyed by action, each containing a rules array with optional when/role conditions and filter objects",
-        "field": "Array of field-level permission objects",
+        "field": "Array of field-level permission objects. Each entry may include <verb>_when arrays with {path, match, values} condition rules for conditional permissions.",
         "actions": "Action-level permissions {export, import, clone, run_script, etc.}"
       },
       "sort": "Default sort rules",

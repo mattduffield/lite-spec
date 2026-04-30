@@ -6408,15 +6408,114 @@
       }
       function handlePermExpression(expression) {
         const schema = {};
+        let conditions = [];
+        let exprForParsing = expression;
+        const ifIdx = expression.indexOf("@if(");
+        if (ifIdx !== -1) {
+          let depth = 0;
+          let ifEnd = -1;
+          for (let i = ifIdx + 3; i < expression.length; i++) {
+            if (expression[i] === "(") depth++;
+            else if (expression[i] === ")") {
+              depth--;
+              if (depth === 0) {
+                ifEnd = i;
+                break;
+              }
+            }
+          }
+          if (ifEnd === -1) {
+            throw new Error("Unbalanced parentheses in @can @if clause");
+          }
+          const ifContent = expression.substring(ifIdx + 4, ifEnd).trim();
+          conditions = parseCanConditions(ifContent);
+          exprForParsing = expression.substring(0, ifIdx) + expression.substring(ifEnd + 1);
+        }
         const regex = /(\w+):\s*"([^"]*)"/g;
-        const matches = expression.matchAll(regex);
+        const matches = exprForParsing.matchAll(regex);
         if (!matches) {
           throw new Error("Invalid permission expression format!");
         }
         for (const match of matches) {
           schema[match[1]] = match[2];
         }
+        if (conditions.length > 0) {
+          for (const verb of Object.keys(schema)) {
+            schema[`${verb}_when`] = conditions;
+          }
+        }
         return schema;
+      }
+      function parseCanConditions(ifContent) {
+        const parts = [];
+        let depth = 0;
+        let start = 0;
+        for (let i = 0; i < ifContent.length; i++) {
+          if (ifContent[i] === "(") depth++;
+          else if (ifContent[i] === ")") depth--;
+          else if (ifContent[i] === "," && depth === 0) {
+            parts.push(ifContent.substring(start, i).trim());
+            start = i + 1;
+          }
+        }
+        parts.push(ifContent.substring(start).trim());
+        const conditions = [];
+        for (const part of parts) {
+          if (!part) continue;
+          const colonIdx = part.indexOf(":");
+          if (colonIdx === -1) {
+            throw new Error(
+              `Invalid condition in @can @if clause: "${part}" \u2014 expected "fieldPath: @match(value)"`
+            );
+          }
+          const path = part.substring(0, colonIdx).trim();
+          const constraint = part.substring(colonIdx + 1).trim();
+          const matchType = constraint.match(/@(\w+)\(/);
+          if (!matchType) {
+            throw new Error(
+              `Invalid constraint in @can @if clause: "${constraint}" \u2014 expected @const(value) or @enum(values)`
+            );
+          }
+          const match = matchType[1];
+          const validMatchTypes = ["const", "enum"];
+          if (!validMatchTypes.includes(match)) {
+            throw new Error(
+              `Unsupported match type "@${match}" in @can @if clause \u2014 supported: @const, @enum`
+            );
+          }
+          const pStart = constraint.indexOf("(") + 1;
+          let d = 1;
+          let pEnd = -1;
+          for (let i = pStart; i < constraint.length; i++) {
+            if (constraint[i] === "(") d++;
+            else if (constraint[i] === ")") {
+              d--;
+              if (d === 0) {
+                pEnd = i;
+                break;
+              }
+            }
+          }
+          const valStr = constraint.substring(pStart, pEnd).trim();
+          let values;
+          if (match === "enum") {
+            values = valStr.split(",").map((v) => {
+              v = v.trim().replace(/^"|"$/g, "");
+              if (v === "true") return true;
+              if (v === "false") return false;
+              if (v !== "" && !isNaN(v)) return Number(v);
+              return v;
+            });
+          } else {
+            let val = valStr.trim().replace(/^"|"$/g, "");
+            if (val === "true") val = true;
+            else if (val === "false") val = false;
+            else if (val !== "" && !isNaN(val)) val = Number(val);
+            values = [val];
+          }
+          conditions.push({ path, match, values });
+        }
+        return conditions;
       }
       function parseFilterValue(val) {
         val = val.trim();
@@ -6689,6 +6788,8 @@
               fieldSchema.pattern = match[1];
             }
           } else if (attr.startsWith("@default")) {
+            const isDateTime = fieldSchema.anyOf && fieldSchema.anyOf.some((s) => s.format === "date-time");
+            if (isDateTime) return;
             const defaultValue = attr.match(/\((.*?)\)/)[1];
             if (defaultValue === '""') {
               fieldSchema.default = "";
@@ -6836,6 +6937,35 @@
             }
             if (breadcrumbRules.length > 0) {
               currentObject.breadcrumb = breadcrumbRules;
+            }
+            const props = currentObject.properties || {};
+            for (const fp of fieldPermissions) {
+              for (const [field, perms] of Object.entries(fp)) {
+                for (const [key, value] of Object.entries(perms)) {
+                  if (key.endsWith("_when") && Array.isArray(value)) {
+                    for (const rule of value) {
+                      const topField = rule.path.split(".")[0];
+                      if (!props[topField]) {
+                        throw new Error(
+                          `@can @if on field "${field}" references unknown field "${rule.path}" \u2014 no property "${topField}" exists in this block`
+                        );
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            for (const [key, value] of Object.entries(permissions)) {
+              if (key.endsWith("_when") && Array.isArray(value)) {
+                for (const rule of value) {
+                  const topField = rule.path.split(".")[0];
+                  if (!props[topField]) {
+                    throw new Error(
+                      `@can @if references unknown field "${rule.path}" \u2014 no property "${topField}" exists in this block`
+                    );
+                  }
+                }
+              }
             }
             if (Object.keys(permissions).length > 0 || Object.keys(filterRules).length > 0 || Object.keys(actionPermissions).length > 0 || fieldPermissions.length > 0) {
               currentObject.permissions = {};
