@@ -7013,7 +7013,8 @@
           } else if (line.startsWith("@actions")) {
             actionPermissions = handlePermExpression(line);
           } else if (line.includes("array(")) {
-            const [field, type] = line.split(":").map((v) => v.trim());
+            const field = line.substring(0, line.indexOf(":")).trim();
+            const type = line.substring(line.indexOf(":") + 1).trim();
             const attributes = extractAttributes(type);
             const arrayTypeMatch = line.match(/array\((\w+)\)/);
             const arrayRefTypeMatch = line.match(/array\(@ref\((\w+)\)/);
