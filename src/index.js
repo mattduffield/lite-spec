@@ -23,6 +23,58 @@ function handleSortExpression(expression) {
 }
 
 /**
+ * Parses a @bump_on_change expression and returns a rule object
+ * @param {string} expression - The bump_on_change expression to parse
+ * @returns {object} The rule with target (string) and when (array of strings)
+ */
+function handleBumpOnChangeExpression(expression) {
+  const start = expression.indexOf("(");
+  let depth = 0;
+  let end = -1;
+  for (let i = start; i < expression.length; i++) {
+    if (expression[i] === "(") depth++;
+    else if (expression[i] === ")") {
+      depth--;
+      if (depth === 0) {
+        end = i;
+        break;
+      }
+    }
+  }
+
+  const inner = expression.substring(start + 1, end).trim();
+
+  // Split on "when:" to get target and triggers
+  const whenIdx = inner.indexOf("when:");
+  if (whenIdx === -1) {
+    throw new Error(
+      `Invalid @bump_on_change syntax — expected "when:" clause: ${expression}`,
+    );
+  }
+
+  const target = inner
+    .substring(0, whenIdx)
+    .replace(/,\s*$/, "")
+    .trim();
+  const whenStr = inner.substring(whenIdx + 5).trim();
+
+  let when;
+  if (whenStr.startsWith("[")) {
+    // Array form: [field1, field2]
+    when = whenStr
+      .slice(1, -1)
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s);
+  } else {
+    // Single field
+    when = [whenStr.trim()];
+  }
+
+  return { target, when };
+}
+
+/**
  * Parses a permission expression and returns a schema object
  * @param {string} expression - The permission expression to parse
  * @returns {object} The permission schema
@@ -707,6 +759,7 @@ function parseDSL(dsl) {
   let fieldPermissions = [];
   let filterRules = {};
   let actionPermissions = {};
+  let bumpOnChangeRules = [];
   let stack = [];
   let currentObject = schema;
 
@@ -720,6 +773,7 @@ function parseDSL(dsl) {
       fieldPermissions = [];
       filterRules = {};
       actionPermissions = {};
+      bumpOnChangeRules = [];
 
       const [defName, defType] = line
         .match(/def (\w+) (object|array)/)
@@ -751,6 +805,7 @@ function parseDSL(dsl) {
       fieldPermissions = [];
       filterRules = {};
       actionPermissions = {};
+      bumpOnChangeRules = [];
 
       const modelName = line.match(/model (\w+)/)[1];
       schema.title = modelName.toLowerCase();
@@ -776,6 +831,27 @@ function parseDSL(dsl) {
       }
       if (breadcrumbRules.length > 0) {
         currentObject.breadcrumb = breadcrumbRules;
+      }
+      if (bumpOnChangeRules.length > 0) {
+        currentObject.bumpOnChange = bumpOnChangeRules;
+      }
+      // Validate @bump_on_change field references (model blocks only)
+      if (context.blockType === "model" && bumpOnChangeRules.length > 0) {
+        const bumpProps = currentObject.properties || {};
+        for (const rule of bumpOnChangeRules) {
+          if (!bumpProps[rule.target]) {
+            throw new Error(
+              `@bump_on_change target "${rule.target}" — no property "${rule.target}" exists in this model`,
+            );
+          }
+          for (const trigger of rule.when) {
+            if (!bumpProps[trigger]) {
+              throw new Error(
+                `@bump_on_change trigger "${trigger}" — no property "${trigger}" exists in this model`,
+              );
+            }
+          }
+        }
       }
       // Validate conditional permission field references (model blocks only —
       // def blocks are fragments that may reference fields in the parent model)
@@ -841,6 +917,7 @@ function parseDSL(dsl) {
       fieldPermissions = [];
       filterRules = {};
       actionPermissions = {};
+      bumpOnChangeRules = [];
 
       if (stack.length > 0) {
         currentObject = stack[stack.length - 1].object;
@@ -861,6 +938,9 @@ function parseDSL(dsl) {
       Object.assign(filterRules, parsed);
     } else if (line.startsWith("@actions")) {
       actionPermissions = handlePermExpression(line);
+    } else if (line.startsWith("@bump_on_change")) {
+      const rule = handleBumpOnChangeExpression(line);
+      bumpOnChangeRules.push(rule);
     } else if (line.includes("array(")) {
       const field = line.substring(0, line.indexOf(":")).trim();
       const type = line.substring(line.indexOf(":") + 1).trim();

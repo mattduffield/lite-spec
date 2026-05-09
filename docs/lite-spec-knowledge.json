@@ -3,7 +3,7 @@
     "name": "LiteSpec Knowledge Base",
     "version": "0.0.1",
     "description": "Structured documentation for LiteSpec, a DSL compiler that converts human-readable schema definitions into JSON Schema",
-    "lastUpdated": "2026-04-30"
+    "lastUpdated": "2026-05-09"
   },
   "overview": {
     "description": "LiteSpec is a Domain-Specific Language (DSL) compiler that converts human-readable schema definitions into JSON Schema (Draft 2020-12). It extends standard JSON Schema with permissions, conditional validation, and MongoDB-specific types. Used by Go Kart for schema generation.",
@@ -237,6 +237,20 @@
       "description": "Define breadcrumb display for navigation",
       "syntax": "@breadcrumb(fieldName, suffix)",
       "usage": "@breadcrumb(customer_name, - Customer)"
+    },
+    "bumpOnChange": {
+      "description": "Declares that when any trigger field changes in a write, the runtime consumer should auto-increment the target field. LiteSpec only emits the metadata; consumers implement the increment logic.",
+      "singleTrigger": "@bump_on_change(session_version, when: permissions)",
+      "multipleTriggers": "@bump_on_change(session_version, when: [permissions, name])",
+      "multipleRules": "Repeat the directive for multiple independent rules",
+      "outputShape": {
+        "bumpOnChange": [
+          { "target": "session_version", "when": ["permissions"] },
+          { "target": "audit_cursor", "when": ["name", "description"] }
+        ]
+      },
+      "validation": "Target and trigger fields must exist in the model's properties. Validated in model blocks only; def blocks skip validation.",
+      "notes": "Omitted from output when no directives are present. The when array is always emitted as an array even for single triggers."
     }
   },
   "api": {
@@ -289,7 +303,8 @@
         "actions": "Action-level permissions {export, import, clone, run_script, etc.}"
       },
       "sort": "Default sort rules",
-      "breadcrumb": "Breadcrumb configuration"
+      "breadcrumb": "Breadcrumb configuration",
+      "bumpOnChange": "Array of {target, when} rules declaring fields to auto-increment when trigger fields change"
     },
     "specialHandling": {
       "dateTime": "format: 'date-time' creates anyOf with empty string option for nullable dates",

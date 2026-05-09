@@ -6406,6 +6406,37 @@
         const [name = "", dir = "asc"] = m.split(",");
         return { name, dir };
       }
+      function handleBumpOnChangeExpression(expression) {
+        const start = expression.indexOf("(");
+        let depth = 0;
+        let end = -1;
+        for (let i = start; i < expression.length; i++) {
+          if (expression[i] === "(") depth++;
+          else if (expression[i] === ")") {
+            depth--;
+            if (depth === 0) {
+              end = i;
+              break;
+            }
+          }
+        }
+        const inner = expression.substring(start + 1, end).trim();
+        const whenIdx = inner.indexOf("when:");
+        if (whenIdx === -1) {
+          throw new Error(
+            `Invalid @bump_on_change syntax \u2014 expected "when:" clause: ${expression}`
+          );
+        }
+        const target = inner.substring(0, whenIdx).replace(/,\s*$/, "").trim();
+        const whenStr = inner.substring(whenIdx + 5).trim();
+        let when;
+        if (whenStr.startsWith("[")) {
+          when = whenStr.slice(1, -1).split(",").map((s) => s.trim()).filter((s) => s);
+        } else {
+          when = [whenStr.trim()];
+        }
+        return { target, when };
+      }
       function handlePermExpression(expression) {
         const schema = {};
         let conditions = [];
@@ -6881,6 +6912,7 @@
         let fieldPermissions = [];
         let filterRules = {};
         let actionPermissions = {};
+        let bumpOnChangeRules = [];
         let stack = [];
         let currentObject = schema;
         lines.forEach((line) => {
@@ -6892,6 +6924,7 @@
             fieldPermissions = [];
             filterRules = {};
             actionPermissions = {};
+            bumpOnChangeRules = [];
             const [defName, defType] = line.match(/def (\w+) (object|array)/).slice(1);
             let defSchema = defType === "object" ? { type: "object", properties: {} } : {
               type: "array",
@@ -6915,6 +6948,7 @@
             fieldPermissions = [];
             filterRules = {};
             actionPermissions = {};
+            bumpOnChangeRules = [];
             const modelName = line.match(/model (\w+)/)[1];
             schema.title = modelName.toLowerCase();
             schema.type = "object";
@@ -6939,6 +6973,26 @@
             }
             if (breadcrumbRules.length > 0) {
               currentObject.breadcrumb = breadcrumbRules;
+            }
+            if (bumpOnChangeRules.length > 0) {
+              currentObject.bumpOnChange = bumpOnChangeRules;
+            }
+            if (context.blockType === "model" && bumpOnChangeRules.length > 0) {
+              const bumpProps = currentObject.properties || {};
+              for (const rule of bumpOnChangeRules) {
+                if (!bumpProps[rule.target]) {
+                  throw new Error(
+                    `@bump_on_change target "${rule.target}" \u2014 no property "${rule.target}" exists in this model`
+                  );
+                }
+                for (const trigger of rule.when) {
+                  if (!bumpProps[trigger]) {
+                    throw new Error(
+                      `@bump_on_change trigger "${trigger}" \u2014 no property "${trigger}" exists in this model`
+                    );
+                  }
+                }
+              }
             }
             if (context.blockType === "model") {
               const props = currentObject.properties || {};
@@ -6993,6 +7047,7 @@
             fieldPermissions = [];
             filterRules = {};
             actionPermissions = {};
+            bumpOnChangeRules = [];
             if (stack.length > 0) {
               currentObject = stack[stack.length - 1].object;
             }
@@ -7012,6 +7067,9 @@
             Object.assign(filterRules, parsed);
           } else if (line.startsWith("@actions")) {
             actionPermissions = handlePermExpression(line);
+          } else if (line.startsWith("@bump_on_change")) {
+            const rule = handleBumpOnChangeExpression(line);
+            bumpOnChangeRules.push(rule);
           } else if (line.includes("array(")) {
             const field = line.substring(0, line.indexOf(":")).trim();
             const type = line.substring(line.indexOf(":") + 1).trim();
